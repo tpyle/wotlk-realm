@@ -1,0 +1,33 @@
+# The game server itself: its own repository (a fork of the playerbots core),
+# and inside it modules/, each of which is also its own repository.
+/server/
+
+# Build tree and run directory. run/etc holds generated configuration with
+# database credentials in it; tools/apply_config.py regenerates all of it.
+/build/
+/run/
+/logs/
+
+# The game master account.
+ADMIN_CREDENTIALS.txt
+
+# Client patches: generated (patch-Z from staging), or 130 MB of third-party
+# models and textures (patch-A, packed from mod-worgoblin's data/patch).
+/client-patch/*.MPQ
+/client-patch/staging/
+
+# DBCs lifted out of other people's client patches so the merge is
+# repeatable: theirs to distribute, not ours. install_worgoblin_dbc.sh
+# probes them back out of the archives.
+/client-patch/hd-dbc/
+/client-patch/stock-dbc/
+
+# Third-party addon (LleguitoWoW/Transmog-Visual-Azerothcore), carried in the
+# client folder for convenience.
+/client-patch/addon/TransmogAzerothCore/
+
+# Vendored upstream source and build products.
+/tools/StormLib/
+/tools/mpq_pack
+__pycache__/
+*.pyc

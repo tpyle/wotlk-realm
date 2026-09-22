@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: Extra Glyphs
+## Notes: Apply glyph effects beyond the six sockets. Needs the mod-extraglyphs server module; the list, the limit and the effects all live there.
+## Author: server-side companion addon
+## SavedVariables: ExtraGlyphsDB
+ExtraGlyphs.lua

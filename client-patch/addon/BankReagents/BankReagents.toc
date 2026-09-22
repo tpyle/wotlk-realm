@@ -1,0 +1,5 @@
+## Interface: 30300
+## Title: Bank Reagents
+## Notes: Counts reagents held in the bank when crafting. The server (Crafting.AllowBankReagents) is what actually consumes them; this only stops the trade skill window from hiding that.
+## Author: server-side companion patch
+BankReagents.lua
