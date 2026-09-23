@@ -619,6 +619,54 @@ handedness, uncommon-to-epic plus heirlooms, no cost. Every one of those is a
 key in `transmog.conf` (`AllowMixedArmorTypes`, `AllowPoor`, `CopperCost`...)
 and re-read by `.transmog reload` (not by `reload config`).
 
+### Lockpicking for every class
+
+Pick Lock is a rogue ability, and two separate things say so - which is why
+opening it up takes two changes, neither of them C++:
+
+* **`SkillLineAbility` row 8439** (spell 1804) carries `ClassMask 8`. This is
+  what `Player::IsSpellFitByClassAndRace` tests, so it decides whether a
+  trainer will teach the spell at all.
+* **`SkillRaceClassInfo` row 601** (skill 633) carries the same mask.
+  `Player::LearnDefaultSkill` looks the skill up with
+  `GetSkillRaceClassInfo(skill, race, class)` and returns without doing
+  anything when no row matches - so without this a non-rogue could know Pick
+  Lock and still have no lockpicking skill to pick with.
+
+`tools/gen_lockpicking_dbc.py` opens both, the way
+`gen_all_weapons_dbc.py` opens the weapon skills. **Server side only**: the
+client is told a character's skills and a trainer's spell list by the
+server, so nothing has to reach `patch-Z`.
+
+The generator is the one that layers onto the live DBC files rather than
+restoring from `.orig` first, because it edits the same two files as the
+weapons pass - reading `.orig` here silently undid "every class can learn
+every weapon", once. `tools/install_worgoblin_dbc.sh` runs the three
+generators in order: classes, weapons, then lockpicking on top.
+
+Then somebody has to teach it. Rogue trainers are trainer 9, a *class*
+trainer with `Requirement = CLASS_ROGUE`, so a non-rogue cannot so much as
+open its window (`Trainer::IsTrainerValidForPlayer`). Rather than weaken
+that, `sql/19_lockpicking_for_all.sql` adds spell 1804 to the
+**blacksmithing trainers** - trainers 58, 59 and 60, which are Type 2
+(tradeskill) with `Requirement = 0`, meaning anyone may talk to them, and
+which cover 32 NPCs across the capitals and most towns. A locksmith is a
+fair thing for a blacksmith to be. The terms are what a rogue pays: 18
+silver at level 16.
+
+Learning the spell is the whole of it. `Player.cpp:3386` grants the skill
+automatically when Pick Lock is learned (the `SKILL_LOCKPICKING` special
+case, which fires because row 8439 has `TrivialSkillLineRankHigh` 0), and
+the skill's maximum is five times the character's level thereafter, as it is
+for a rogue.
+
+**A warning, learned by doing it.** `.character check bank` is declared
+`Console::Yes` but opens *the caller's own* bank, and the console has no
+session: typing it at the world console dereferenced null and segfaulted the
+server. Fixed in the core fork (`cs_character.cpp`), but the general lesson
+stands - a command that acts on "you" has no business being run from a
+console that is not anybody.
+
 ### Worgen and Goblin
 
 `mod-worgoblin` (community module, `server/modules/mod-worgoblin`,

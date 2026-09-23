@@ -50,6 +50,9 @@ echo "installed $n module DBCs into $DBC"
 
 python3 "$ROOT/tools/gen_all_classes_dbc.py"
 python3 "$ROOT/tools/gen_all_weapons_dbc.py"
+# Layered on top of the weapons pass, not restored from .orig like the two
+# above: it edits the same two files, so starting from .orig would undo them.
+python3 "$ROOT/tools/gen_lockpicking_dbc.py"
 fi
 
 # --- the HD patches -------------------------------------------------------
