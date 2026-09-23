@@ -364,11 +364,16 @@ SETTINGS = {
         # more buying a dozen small lots of cloth. Rarer trade goods keep the
         # random sizing: a 200-lot of a blue material would price itself out.
         "AuctionHouseBot.TradeGoodsFullStack": "1",
-        "AuctionHouseBot.TradeGoodsFullStack.MaxQuality": "1",
         # Lots stay at 200 even though the bag stack is 999 (sql/08): a lot
         # the size of the whole stack would be five times the price and more
         # than a buyer wanting forty needs to carry.
         "AuctionHouseBot.TradeGoodsFullStack.Max": "200",
+        # Greens get a smaller lot than commons: at 200 a lot of Titanium
+        # Bars would be some 4,000 gold. 20 is still nearly seven times the
+        # maxstackgreen of 3 that the bot's own table imposes.
+        "AuctionHouseBot.TradeGoodsFullStack.MaxUncommon": "20",
+        # ...and greens are now in scope for full stacks at all.
+        "AuctionHouseBot.TradeGoodsFullStack.MaxQuality": "2",
     },
     "modules/mod_aurastack.conf": {
         "AuraStack.Enable": "1",
