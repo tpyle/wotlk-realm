@@ -39,7 +39,7 @@ it is not worth that.
 | repository | origin (pushed to) | upstream (merged from) | what is local |
 | --- | --- | --- | --- |
 | `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations |
-| `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, pricing for items with no vendor sell price, one log line demoted |
+| `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, a lot size of their own for greens, pricing for items with no vendor sell price, one log line demoted |
 | `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
 **Used unmodified** - no fork needed, each cloned straight from its own
@@ -2017,7 +2017,7 @@ RPG targets, and posts nothing.
 
 Both halves are on: `EnableSeller` and `EnableBuyer`.
 
-It needed no core change, but it carries **four local patches**, all of which
+It needed no core change, but it carries **five local patches**, all of which
 have to be remembered if the module is ever re-cloned:
 
 | file | change |
@@ -2026,6 +2026,7 @@ have to be remembered if the module is ever re-cloned:
 | `AuctionHouseBotAuctionHouseScript.cpp` | shuffles the seller iteration order each tick, so listings spread evenly across the seller characters (see "Sellers, and why there were eight of one" below) |
 | `AuctionHouseBot.cpp` + `AuctionHouseBotConfig.{h,cpp}` | `TradeGoodsFullStack` option - common trade goods post at the item's full stack instead of a random size (see "Full stacks of trade goods" below) |
 | `AuctionHouseBotConfig.cpp` + `AuctionHouseBot.cpp` | items with a `BuyPrice` but no `SellPrice` are admitted and priced at `BuyPrice / 4` (see "Enchanting materials" below) |
+| `AuctionHouseBot.cpp` + `AuctionHouseBotConfig.{h,cpp}` | `TradeGoodsFullStack.MaxUncommon` - a separate, smaller lot size for green trade goods (see "Green trade goods" below) |
 
 Compatibility with this playerbot fork was checked
 before installing rather than assumed - all eleven `AuctionHouseMgr` calls it
@@ -2264,6 +2265,26 @@ else in the house stayed exactly where it was.
 `GetMoney` or `ModifyMoney` check anywhere in `AuctionHouseBot.cpp` - so money
 paid for player auctions is created from nothing. That is a slow inflation
 source, and the price to pay for being able to sell anything at all here.
+
+### Green trade goods
+
+They were listing **three at a time**, which is tedious to buy in any
+quantity and puts very few units on the house. Two things stacked up: the
+full-stack rule above only covered *common* trade goods
+(`TradeGoodsFullStack.MaxQuality = 1`), so greens fell through to
+`maxstackgreen` in `mod_auctionhousebot` - which ships as 3, alongside
+`maxstackwhite` 20 and `maxstackblue` 2.
+
+Extending the rule to greens is not enough on its own. A green trade good is
+worth ten to twenty times a common one, so the 200 that makes Linen Cloth
+convenient would put a lot of Righteous Orbs at about 3,700 gold - no more
+buyable than three at a time is convenient.
+
+So `TradeGoodsFullStack.MaxUncommon` caps quality >= uncommon separately (0
+falls back to `.Max`). At **20** the dearest greens come to 200-370 gold a
+lot - Righteous Orb 366, Guardian Stone 273, Titansteel Bar 221 - and the
+cheapest to ten, while commons keep their 200. It is read from the config on
+every listing, so changing it takes a `reload config` rather than a rebuild.
 
 ### Enchanting materials
 
