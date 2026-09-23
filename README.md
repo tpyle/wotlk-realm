@@ -14,19 +14,28 @@ own.
 **Forks of other people's work** (local changes on a branch, nothing pushed
 upstream):
 
-| repository | upstream | branch | what is local |
+Every repository here uses `trunk` as its branch. In the three forks the
+fork is the `fork` remote and the upstream it was forked from is `origin`, so
+`git fetch origin && git merge origin/<upstream branch>` is how upstream
+changes come in.
+
+| repository | fork (`fork`) | upstream (`origin`) | what is local |
 | --- | --- | --- | --- |
-| `server/` | liyunfan1223/azerothcore-wotlk (Playerbot) | `custom-server` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations |
-| `server/modules/mod-ah-bot` | azerothcore/mod-ah-bot | `custom-ahbot` | seller shuffle, full trade-good stacks, pricing for items with no vendor sell price, one log line demoted |
-| `server/modules/mod-playerbots` | liyunfan1223/mod-playerbots | `custom-playerbots` | quest hubs as a random-teleport destination |
+| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations |
+| `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, pricing for items with no vendor sell price, one log line demoted |
+| `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
-**Used unmodified** - no fork needed, and each is on its upstream master:
-`mod-transmog`, `mod-aoe-loot`, `mod-worgoblin` (heyitsbench), `mod-autobalance`.
+**Used unmodified** - no fork needed, each cloned from upstream and on its
+upstream branch: [mod-transmog](https://github.com/azerothcore/mod-transmog),
+[mod-aoe-loot](https://github.com/azerothcore/mod-aoe-loot),
+[mod-worgoblin](https://github.com/heyitsbench/mod-worgoblin),
+[mod-autobalance](https://github.com/azerothcore/mod-autobalance).
 
-**Written here**, one repository each, in the layout AzerothCore expects
-(clone into `modules/`): `mod-worldscale`, `mod-factionchoice`,
-`mod-botlore`, `mod-talentgrant`, `mod-extraglyphs`, `mod-bankreagents`,
-`mod-languages`, `mod-spellcooldowns`, `mod-aurastack`, `mod-bigbags`.
+**Written here**, one repository each under
+[tpyle](https://github.com/tpyle), in the layout AzerothCore expects (clone
+into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags).
+
+This repository is [tpyle/wotlk-realm](https://github.com/tpyle/wotlk-realm).
 
 The two client addons written here, `BankReagents` and `ExtraGlyphs`, live in
 `client-patch/addon/` in this repository rather than in the repositories of
