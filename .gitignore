@@ -5,6 +5,9 @@
 # Build tree and run directory. run/etc holds generated configuration with
 # database credentials in it; tools/apply_config.py regenerates all of it.
 /build/
+# Separate tree configured with -DBUILD_TESTING=ON (see README, "Tests").
+/build-test/
+/run-test/
 /run/
 /logs/
 
