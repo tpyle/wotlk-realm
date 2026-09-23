@@ -2423,6 +2423,38 @@ mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/01_all_classes
 mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/02_big_bags.sql
 ```
 
+## Long jobs
+
+A rebuild here takes tens of minutes to hours, and the obvious way to run one
+- start it, watch it, wait - loses the job the moment the SSH connection
+drops. `tools/bg.sh` runs it in a tmux session instead:
+
+```
+tools/bg.sh start rebuild 'cd /root/classic/build && make -j2 game scripts modules'
+tools/bg.sh status                  # running, or finished with its exit code
+tools/bg.sh log rebuild 40          # the output so far
+tmux attach -t acore-rebuild        # watch it happen (ctrl-b d to leave)
+tools/bg.sh watch rebuild           # block until it finishes; exits with its code
+```
+
+tmux buys three things over `setsid nohup ... &`:
+
+* the job can be watched live, and its scrollback survives;
+* **the exit code survives the process.** The pane is kept after the command
+  exits (`remain-on-exit`), so `#{pane_dead_status}` still reports it - tested
+  at 42 and 9. A plain background job has to remember to write `$?` somewhere,
+  and if it is killed rather than failing, nothing is written at all;
+* the output is on screen *and* in `logs/<name>.log` (`pipe-pane`), so it can
+  be grepped afterwards.
+
+What it does not do is announce that it has finished - nothing polls on its
+own. `tools/bg.sh watch <name>` blocks until the job ends and exits with the
+job's code, which is the thing to run when something needs to wait for it.
+
+`status` lists the server's own `acore-world` and `acore-auth` sessions too,
+since they are tmux sessions with the same prefix; they simply always read
+"running".
+
 ## Logs
 
 `logs/Server.log`, `Playerbots.log`, `Errors.log` and `Auth.log` are opened in
