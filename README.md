@@ -14,19 +14,37 @@ own.
 **Forks of other people's work** (local changes on a branch, nothing pushed
 upstream):
 
-Every repository here uses `trunk` as its branch. In the three forks the
-fork is the `fork` remote and the upstream it was forked from is `origin`, so
-`git fetch origin && git merge origin/<upstream branch>` is how upstream
+Every repository here uses `trunk` as its branch, and in every one `origin`
+is the copy on GitHub that gets pushed to. The three forks carry a second
+remote, `upstream`, pointing at the project they were forked from:
+`git fetch upstream && git merge upstream/<branch>` is how other people's
 changes come in.
 
-| repository | fork (`fork`) | upstream (`origin`) | what is local |
+`tools/bootstrap.sh` clones the whole tree - the core plus its
+seventeen modules - in one go, and `tools/bootstrap.sh --status` prints where
+each one is. `bootstrap.lock` records the commit every repository was on when
+it was last written (`--lock`), and `--pinned` checks those commits back out;
+that is the reproducibility submodules would have given, without a
+`.gitmodules` in the core fork.
+
+Submodules were considered and rejected for one structural reason:
+AzerothCore's own `.gitignore` has `/modules/*`, deliberately leaving that
+directory free for whatever the user puts there, and ships no `.gitmodules`.
+Making the modules submodules would mean editing that tracked file and adding
+a `.gitmodules` in the core fork - permanent drift in the one repository where
+a 231-commit upstream merge has to stay easy - and nesting them under a
+`server/` submodule on top of that. The cloning problem is worth a script;
+it is not worth that.
+
+| repository | origin (pushed to) | upstream (merged from) | what is local |
 | --- | --- | --- | --- |
 | `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations |
 | `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, pricing for items with no vendor sell price, one log line demoted |
 | `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
-**Used unmodified** - no fork needed, each cloned from upstream and on its
-upstream branch: [mod-transmog](https://github.com/azerothcore/mod-transmog),
+**Used unmodified** - no fork needed, each cloned straight from its own
+project and left on its upstream branch (so `bootstrap.lock` is what pins
+them): [mod-transmog](https://github.com/azerothcore/mod-transmog),
 [mod-aoe-loot](https://github.com/azerothcore/mod-aoe-loot),
 [mod-worgoblin](https://github.com/heyitsbench/mod-worgoblin),
 [mod-autobalance](https://github.com/azerothcore/mod-autobalance).
