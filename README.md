@@ -33,7 +33,7 @@ upstream branch: [mod-transmog](https://github.com/azerothcore/mod-transmog),
 
 **Written here**, one repository each under
 [tpyle](https://github.com/tpyle), in the layout AzerothCore expects (clone
-into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags).
+into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags), [mod-transmog-collect](https://github.com/tpyle/mod-transmog-collect).
 
 This repository is [tpyle/wotlk-realm](https://github.com/tpyle/wotlk-realm).
 
@@ -578,6 +578,23 @@ dressing-room wardrobe with the whole catalogue (`db/Items.lua`, 5 MB), an
 Unlocked filter fed live by the server's `TRANSMOG_SYNC:<id>` lines
 (`.transmog sync` replays the collection), per-slot progress, and saved looks.
 It reads only; applying still goes through the gossip.
+
+**Collecting from gear you sell or disenchant.** mod-transmog's collection
+covers loot, equip, craft, vendor purchase and quest reward - but not the two
+things that happen to gear nobody means to keep, selling it and
+disenchanting it, both of which destroy the item and took the appearance with
+it. `mod-transmog-collect` (`server/modules/mod-transmog-collect`,
+`run/etc/modules/mod_transmog_collect.conf`) records those two moments while
+the item still exists: `OnPlayerCanSellItem`, which fires in
+`HandleSellItemOpcode` with the item still in the bags (the module records
+and returns true, so the sale and its buyback slot are unaffected), and
+`OnPlayerBeforeSendLoot` filtered to `LOOT_DISENCHANTING`, which is what
+`Spell::EffectDisEnchant` raises on the item's own GUID. The recording itself
+is mod-transmog's own `AddToDatabase`, so the quality and armour-type rules,
+the account-wide dedupe, the chat notice and the
+`custom_unlocked_appearances` row are all exactly as for any other source -
+and mod-transmog stays an unmodified upstream clone, which is why this is a
+separate module rather than a fourth fork.
 
 Rules are the module defaults: same armour type, same weapon type and
 handedness, uncommon-to-epic plus heirlooms, no cost. Every one of those is a
