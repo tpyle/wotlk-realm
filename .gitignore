@@ -31,3 +31,6 @@ ADMIN_CREDENTIALS.txt
 /tools/mpq_pack
 __pycache__/
 *.pyc
+
+# Database dumps taken before risky upgrades.
+/backups/

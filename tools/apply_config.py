@@ -168,6 +168,15 @@ SETTINGS = {
         "AOELoot.Range": "55.0",
         "AOELoot.Group": "1",
     },
+    "modules/mod_transmog_collect.conf": {
+        # Also collect an appearance when gear is sold to a vendor or
+        # disenchanted - the two ways of parting with gear that mod-transmog's
+        # own hooks miss, and the two that happen to gear nobody intends to
+        # keep.
+        "TransmogCollect.Enable": "1",
+        "TransmogCollect.OnSell": "1",
+        "TransmogCollect.OnDisenchant": "1",
+    },
     "modules/transmog.conf": {
         # mod-transmog with the Legion-style collection: appearances unlock
         # account-wide when an item is looted, equipped, crafted, bought or
