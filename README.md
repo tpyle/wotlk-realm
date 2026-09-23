@@ -2423,6 +2423,70 @@ mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/01_all_classes
 mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/02_big_bags.sql
 ```
 
+## Tests
+
+Five of the modules written here carry unit tests: mod-worldscale (24),
+mod-botlore (27), mod-talentgrant (15), mod-spellcooldowns (10) and
+mod-bankreagents (8). **84 tests, and they run in under a second** - because
+none of them needs a server.
+
+That is the whole design. A module's logic normally lives inside hook methods
+that take a `Player` and a `Creature`, which cannot be called without a
+world, a database and a client. So in each of these modules the *decisions*
+were moved into a header of pure functions over numbers and strings -
+`WorldScaleMath.h`, `BotLoreSelection.h`, `TalentGrantMath.h`,
+`SpellIdList.h`, `BankReagentsMath.h` - leaving the hooks to do the part that
+genuinely needs the world and hand the numbers over. Those headers include
+nothing but the standard library. (The core's `uint8` and friends are plain
+typedefs of `std::uint8_t`, so spelling out the standard types costs the
+module nothing and removes the last dependency.)
+
+Two ways to run them:
+
+* **On their own** - what CI does. Each module has `tests/CMakeLists.txt`,
+  which fetches googletest and builds nothing else, and a GitHub workflow
+  that is checkout, cmake, ctest. No AzerothCore clone, no core build.
+
+      cmake -S tests -B build-tests && cmake --build build-tests
+      ctest --test-dir build-tests --output-on-failure
+
+* **Alongside AzerothCore's own suite.** Each module also ships
+  `<module>.cmake`, which appends the same test files to the core's
+  `unit_tests` target through the `ACORE_MODULE_TEST_SOURCES` property that
+  `modules/CMakeLists.txt` already supports - so **no change to AzerothCore
+  is needed**, and only `<module>/src` is ever compiled into the server.
+  Configure a *separate* build tree for this, because `BUILD_TESTING=ON`
+  fetches googletest and builds a `unit_tests` binary that links all of
+  `game` and `modules`:
+
+      cmake /root/classic/server -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=/root/classic/run ...
+      make unit_tests && ./src/test/unit_tests
+
+  Keep `CMAKE_INSTALL_PREFIX` the same as the production tree: it lands in
+  `-D_CONF_DIR` in every translation unit, and changing it turns ~1,700
+  ccache hits into misses - an hour of compiling instead of fifteen minutes.
+  The coverage flags `BUILD_TESTING` adds go only to `unit_tests`; `game` and
+  `modules` keep byte-identical flags, so the server build is unaffected.
+
+The full in-tree run is 11,502 tests (6,016 assertions executed, the rest
+skipped), our 84 among them, in 370 ms.
+
+**Writing the tests was worth it for what they found.** Two live bugs:
+mod-botlore's placeholder substitution resumed its search *at* the inserted
+value rather than after it, so a replacement containing its own token would
+have looped forever; and mod-bankreagents multiplied stack size by
+`MinStacks` unguarded, which with 999-stacking trade goods could wrap and
+quietly pull too little. Two of the tests were themselves wrong and the code
+was right - the quest-XP curve is flat for the first five levels below the
+player, and a zero stack size should leave the recipe's own count in charge -
+which is its own kind of value: they now record how those things actually
+behave.
+
+The modules that are mostly gossip menus and database writes - mod-aurastack,
+mod-bigbags, mod-languages, mod-factionchoice, mod-extraglyphs,
+mod-transmog-collect - have no tests, deliberately. There is no arithmetic in
+them to pin down, and extracting a seam to test would be inventing one.
+
 ## Long jobs
 
 A rebuild here takes tens of minutes to hours, and the obvious way to run one
