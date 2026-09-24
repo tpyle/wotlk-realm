@@ -11,9 +11,11 @@
 #   2. refreshes the *.orig baselines our own generators start from, because
 #      the module's CharBaseInfo/CharStartOutfit/SkillLineAbility/
 #      SkillRaceClassInfo are now the base to patch, not the stock ones;
-#   3. re-runs gen_all_classes_dbc.py and gen_all_weapons_dbc.py so "all
-#      classes on all races" and "every weapon for every class" now cover
-#      Worgen and Goblin too;
+#   3. re-runs gen_all_classes_dbc.py so "all classes on all races" covers
+#      Worgen and Goblin too. (Weapon proficiencies and lockpicking used to
+#      be file patches here as well; they are mod-openskills now, which opens
+#      those masks in memory at startup and therefore needs nothing doing
+#      when the DBCs are replaced.)
 #   4. packs our two client DBCs as patch-Z.MPQ. It used to be patch-4.MPQ;
 #      the client loads patch-?.MPQ matches in name order with later ones
 #      overriding, digits before letters, so patch-4 would lose to the
@@ -49,10 +51,6 @@ done
 echo "installed $n module DBCs into $DBC"
 
 python3 "$ROOT/tools/gen_all_classes_dbc.py"
-python3 "$ROOT/tools/gen_all_weapons_dbc.py"
-# Layered on top of the weapons pass, not restored from .orig like the two
-# above: it edits the same two files, so starting from .orig would undo them.
-python3 "$ROOT/tools/gen_lockpicking_dbc.py"
 fi
 
 # --- the HD patches -------------------------------------------------------

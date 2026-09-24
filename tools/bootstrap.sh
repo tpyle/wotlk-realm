@@ -2,8 +2,8 @@
 #
 # Clone the realm's source tree.
 #
-# The tree is eighteen git repositories, not one: this project, the core, and
-# seventeen modules. They are deliberately not submodules - AzerothCore's own
+# The tree is nineteen git repositories, not one: this project, the core, and
+# eighteen modules. They are deliberately not submodules - AzerothCore's own
 # .gitignore keeps modules/ free for the user, so making them submodules would
 # mean carrying a modified .gitignore and a .gitmodules in the core fork, which
 # is the one repository where drift against upstream costs the most.
@@ -43,6 +43,7 @@ REPOS=(
 
   # Written here.
   "server/modules/mod-worldscale|$GH/mod-worldscale|trunk|"
+  "server/modules/mod-openskills|$GH/mod-openskills|trunk|"
   "server/modules/mod-factionchoice|$GH/mod-factionchoice|trunk|"
   "server/modules/mod-botlore|$GH/mod-botlore|trunk|"
   "server/modules/mod-talentgrant|$GH/mod-talentgrant|trunk|"

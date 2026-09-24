@@ -1,15 +1,16 @@
-# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-09-23 02:18:41 UTC
-server	36f0fce41da25d634111d5b8731b1d380be3d288
-server/modules/mod-ah-bot	9171100f0e71c3c87300ead621bab745881cf875
+# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-09-24 00:16:09 UTC
+server	438e54ae6a5fd0a0b811746095af76350a278021
+server/modules/mod-ah-bot	9911a91bd1b1569ee8c118f48207800007d91c39
 server/modules/mod-playerbots	8929115f2e27095e1eaa4c6db4c223436dbc3903
-server/modules/mod-worldscale	4447cc4aac2227caa4ec69afa7b2986286447ecc
+server/modules/mod-worldscale	93c24bb5200d2a43abe4383f560658d22bcb43bf
+server/modules/mod-openskills	955d36d0e31ae745c29cda0cab2995055334e8bf
 server/modules/mod-factionchoice	5fc3b967494b580e4aae2744eaa7ec8973f94f6b
-server/modules/mod-botlore	50f487b36f4a2a4a7af128fd9cf7d956917305f1
-server/modules/mod-talentgrant	8d1a12affaaa1114d5b43d9cae0265b9c1ba70ea
+server/modules/mod-botlore	fbd0d8af61764e331f40efd2343f677956864804
+server/modules/mod-talentgrant	f2a2de83a1546e95a9035944058a4f783b981265
 server/modules/mod-extraglyphs	df242bc4d60ecbf475152a1ca3ffc45dbac74d8d
-server/modules/mod-bankreagents	71a80e857b87899ac7f49195789604d89d926fb4
+server/modules/mod-bankreagents	63eeb1bd8c90e61cf0fa3e28668192531812bd59
 server/modules/mod-languages	050c4fc740081d84844819b094954305ffc78164
-server/modules/mod-spellcooldowns	5a9f8da227934e940ef84d96c7ccbda8c4fd6407
+server/modules/mod-spellcooldowns	5cc07196aa415378b77c505dc27926f2da0fe340
 server/modules/mod-aurastack	48899a66fcbe1d7b78b1f8312f159c3c3257ea20
 server/modules/mod-bigbags	6854eedcfddee129efdbc6ac14fc982eee7f1ae1
 server/modules/mod-transmog-collect	21c96165813733d32d265366820392930044d623

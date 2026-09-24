@@ -21,7 +21,7 @@ remote, `upstream`, pointing at the project they were forked from:
 changes come in.
 
 `tools/bootstrap.sh` clones the whole tree - the core plus its
-seventeen modules - in one go, and `tools/bootstrap.sh --status` prints where
+eighteen modules - in one go, and `tools/bootstrap.sh --status` prints where
 each one is. `bootstrap.lock` records the commit every repository was on when
 it was last written (`--lock`), and `--pinned` checks those commits back out;
 that is the reproducibility submodules would have given, without a
@@ -51,7 +51,7 @@ them): [mod-transmog](https://github.com/azerothcore/mod-transmog),
 
 **Written here**, one repository each under
 [tpyle](https://github.com/tpyle), in the layout AzerothCore expects (clone
-into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags), [mod-transmog-collect](https://github.com/tpyle/mod-transmog-collect).
+into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags), [mod-transmog-collect](https://github.com/tpyle/mod-transmog-collect), [mod-openskills](https://github.com/tpyle/mod-openskills).
 
 This repository is [tpyle/wotlk-realm](https://github.com/tpyle/wotlk-realm).
 
@@ -619,54 +619,6 @@ handedness, uncommon-to-epic plus heirlooms, no cost. Every one of those is a
 key in `transmog.conf` (`AllowMixedArmorTypes`, `AllowPoor`, `CopperCost`...)
 and re-read by `.transmog reload` (not by `reload config`).
 
-### Lockpicking for every class
-
-Pick Lock is a rogue ability, and two separate things say so - which is why
-opening it up takes two changes, neither of them C++:
-
-* **`SkillLineAbility` row 8439** (spell 1804) carries `ClassMask 8`. This is
-  what `Player::IsSpellFitByClassAndRace` tests, so it decides whether a
-  trainer will teach the spell at all.
-* **`SkillRaceClassInfo` row 601** (skill 633) carries the same mask.
-  `Player::LearnDefaultSkill` looks the skill up with
-  `GetSkillRaceClassInfo(skill, race, class)` and returns without doing
-  anything when no row matches - so without this a non-rogue could know Pick
-  Lock and still have no lockpicking skill to pick with.
-
-`tools/gen_lockpicking_dbc.py` opens both, the way
-`gen_all_weapons_dbc.py` opens the weapon skills. **Server side only**: the
-client is told a character's skills and a trainer's spell list by the
-server, so nothing has to reach `patch-Z`.
-
-The generator is the one that layers onto the live DBC files rather than
-restoring from `.orig` first, because it edits the same two files as the
-weapons pass - reading `.orig` here silently undid "every class can learn
-every weapon", once. `tools/install_worgoblin_dbc.sh` runs the three
-generators in order: classes, weapons, then lockpicking on top.
-
-Then somebody has to teach it. Rogue trainers are trainer 9, a *class*
-trainer with `Requirement = CLASS_ROGUE`, so a non-rogue cannot so much as
-open its window (`Trainer::IsTrainerValidForPlayer`). Rather than weaken
-that, `sql/19_lockpicking_for_all.sql` adds spell 1804 to the
-**blacksmithing trainers** - trainers 58, 59 and 60, which are Type 2
-(tradeskill) with `Requirement = 0`, meaning anyone may talk to them, and
-which cover 32 NPCs across the capitals and most towns. A locksmith is a
-fair thing for a blacksmith to be. The terms are what a rogue pays: 18
-silver at level 16.
-
-Learning the spell is the whole of it. `Player.cpp:3386` grants the skill
-automatically when Pick Lock is learned (the `SKILL_LOCKPICKING` special
-case, which fires because row 8439 has `TrivialSkillLineRankHigh` 0), and
-the skill's maximum is five times the character's level thereafter, as it is
-for a rogue.
-
-**A warning, learned by doing it.** `.character check bank` is declared
-`Console::Yes` but opens *the caller's own* bank, and the console has no
-session: typing it at the world console dereferenced null and segfaulted the
-server. Fixed in the core fork (`cs_character.cpp`), but the general lesson
-stands - a command that acts on "you" has no business being run from a
-console that is not anybody.
-
 ### Worgen and Goblin
 
 `mod-worgoblin` (community module, `server/modules/mod-worgoblin`,
@@ -1077,65 +1029,76 @@ Two supporting changes come with it:
   `quest_template_allowableraces_backup`; `sql/03_quests_any_race_revert.sql`
   puts them back.
 
-### Every class can learn every weapon
+### Every class can learn every weapon, and lockpicking
 
-`tools/gen_all_weapons_dbc.py` removes the class restriction from weapon
-training, so any class can walk up to a weapon master and buy any weapon skill
-at the normal price. A rogue can learn two-handed axes, a mage can learn swords.
+`mod-openskills` (`server/modules/mod-openskills`,
+`run/etc/modules/mod_openskills.conf`). Any class can walk up to a weapon
+master and buy any weapon skill at the normal price - a rogue can learn
+two-handed axes, a mage can learn swords - and anyone can learn Pick Lock.
 
-Two server-side DBCs decide this. `Player::IsSpellFitByClassAndRace()`, which
-`Trainer.cpp` consults both when listing a trainer's spells and when selling
-one, checks the `ClassMask` on the `SkillLineAbility.dbc` row (0 means no
-restriction) and requires a matching row in `SkillRaceClassInfo.dbc`. The
-script clears the first and opens up the second for the fifteen weapon skills:
+Two DBC columns do the restricting, and they answer different questions, so
+both have to be opened:
 
-```
-Swords, Axes, Maces, Daggers, Staves, Polearms, Fist Weapons, Thrown,
-Two-Handed Swords/Axes/Maces, Bows, Guns, Crossbows, Wands
-```
+| column | question |
+| --- | --- |
+| `SkillLineAbility.ClassMask` | will a trainer teach the proficiency spell? (`Player::IsSpellFitByClassAndRace`, which `Trainer.cpp` consults both when listing a trainer's spells and when selling one) |
+| `SkillRaceClassInfo.ClassMask` | does learning it grant the skill - and may a character who has it **keep** it? (`GetSkillRaceClassInfo`) |
 
-Neither file matters to the client here - trainer lists are built server side -
-so **no client patch is needed** for this, unlike the class/race unlock.
+Opening only the first leaves a character holding an ability with no skill
+behind it. Neither file matters to the client - trainer lists are built
+server side - so **no client patch is needed** for this, unlike the
+class/race unlock.
+
+The module patches both **in memory at startup**, under three switches
+(`OpenSkills.Weapons`, `.Lockpicking`, and `.Extra` for any other skill ids),
+keeping the originals so a skill dropped on `reload config` is closed again.
+It needs no change to AzerothCore: `sSkillRaceClassInfoStore` is not exported
+by `DBCStores.h`, only `GetSkillRaceClassInfo(skill, race, class)`, so those
+rows are reached by asking for every race and class in turn.
+
+**Why in memory.** This replaces two generators that rewrote
+`run/data/dbc/SkillLineAbility.dbc` and `SkillRaceClassInfo.dbc` on disk, one
+for weapons and one for lockpicking. Both edited the same two files, and the
+one that restored from its `.orig` backup first silently undid the other -
+which it did, once, in the space of a single afternoon. Nothing is written to
+disk now, so re-extracting the DBCs from the client cannot revert it either.
+
+**`Player::_LoadSkills` deletes a stored skill with no matching
+`SkillRaceClassInfo` row** - *"has skill (43) that is invalid for the
+race/class combination. Will be deleted."* So these masks are load-bearing:
+booting once with a skill dropped from the list costs every character holding
+it that skill, and its value, at next login. The module reports what it
+opened (`16 skill(s) open to every class (86 row(s) opened, 2 already open)`)
+and logs an error if nothing is open while it is enabled. This was verified
+the honest way: the DBC files were restored to stock, the server restarted
+with the module solely responsible, and 500 bots logged in with zero
+deletions and the at-risk skills - a warrior's lockpicking, three mages'
+swords at 400/70/375 - intact.
+
+**Somebody still has to teach it**, which is two trainer gaps the module
+fills with SQL the DB updater applies:
+
+* **Wands** - the one weapon nobody ever taught, because caster classes are
+  handed the proficiency at creation and it appears on no trainer's list.
+  Spells 5009 (Wands) and 5019 (Shoot) go to every trainer that already
+  teaches a proficiency.
+* **Pick Lock** - rogue trainers are a *class* trainer requiring
+  `CLASS_ROGUE`, so a non-rogue cannot even open the window. Spell 1804 goes
+  to the blacksmithing trainers instead (58, 59, 60 - Type 2, no requirement,
+  32 NPCs across the capitals), on the terms a rogue pays: 18 silver at level
+  16. A locksmith is a fair thing for a blacksmith to be. Learning the spell
+  is the whole of it - the core grants the skill automatically, and its
+  maximum is five times the character's level thereafter.
 
 Kept deliberately untouched: the automatic abilities that share those skill
-lines (Shoot, Throw) stay class-restricted, and the racial weapon
-specialisations live in other skill lines and are not touched at all, so no
-race gains another race's bonuses. Every weapon skill uses the same
-flags/tier in `SkillRaceClassInfo`, so opening the masks does not change
-anyone's skill caps.
-
-Wands needed one extra step: no trainer ever taught them, because caster
-classes are simply given them at creation. `sql/06_weapon_masters_wands.sql`
-adds the Wands proficiency and Shoot to every trainer that already teaches a
-weapon skill.
+lines (Throw) stay class-restricted, and the racial weapon specialisations
+live in other skill lines, so no race gains another race's bonuses. Every
+weapon skill uses the same flags and tier in `SkillRaceClassInfo`, so opening
+the masks does not change anyone's skill caps.
 
 Every weapon master keeps their own list - the class gate is gone, but the
-*trainer's* list is not changed - so covering all fourteen trainable types
-means visiting more than one. Wands (added by the SQL above) are available from
-all of them.
-
-| Master | Where | Teaches |
-| --- | --- | --- |
-| Woo Ping | Stormwind | Polearms, Swords, 2H Swords, Staves, Daggers, Crossbows |
-| Buliwyf Stonehand | Ironforge | Axes, 2H Axes, Maces, 2H Maces, Guns, Fist |
-| Bixi Wobblebonk | Ironforge | Daggers, Thrown, Crossbows |
-| Ilyenia Moonfire | Darnassus | Staves, Bows, Daggers, Thrown, Fist |
-| Handiir | the Exodar | Maces, 2H Maces, Swords, 2H Swords, Daggers, Crossbows |
-| Sayoc | Orgrimmar | Axes, 2H Axes, Bows, Daggers, Thrown, Fist |
-| Hanashi | Orgrimmar | Axes, 2H Axes, Staves, Bows, Thrown |
-| Ansekhwa | Thunder Bluff | Maces, 2H Maces, Staves, Guns |
-| Archibald | Undercity | Polearms, Swords, 2H Swords, Daggers, Crossbows |
-| Ileda | Silvermoon City | Polearms, Swords, 2H Swords, Bows, Daggers, Thrown |
-| Duelist Larenis | Eversong Woods | Polearms, Swords, 2H Swords, Bows, Daggers, Thrown |
-
-Shortest routes to all fourteen: **Alliance** Stormwind + Ironforge +
-Darnassus (Bows and Thrown only come from Ilyenia; Guns only from Buliwyf).
-**Horde** Orgrimmar + Thunder Bluff + Undercity or Silvermoon (Guns only come
-from Ansekhwa in Thunder Bluff).
-
-To revert: restore `run/data/dbc/SkillLineAbility.dbc.orig` and
-`SkillRaceClassInfo.dbc.orig` over the patched files, run the `DELETE` noted in
-the SQL file, and restart.
+*trainer's* list is not - so covering all fourteen trainable types means
+visiting more than one. Wands are available from all of them.
 
 ### Lore chatter from the bots
 

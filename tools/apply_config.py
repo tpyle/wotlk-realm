@@ -201,6 +201,17 @@ SETTINGS = {
         # patch-A.MPQ is in the client's Data folder.
         "Announce.enable": "false",
     },
+    "modules/mod_openskills.conf": {
+        # Weapon proficiencies and lockpicking, opened to every class in
+        # memory at startup - replacing two generators that rewrote the DBC
+        # files on disk. Turning one of these off is not neutral:
+        # Player::_LoadSkills deletes a stored skill that no longer has a
+        # SkillRaceClassInfo row, so every character holding it loses it at
+        # next login.
+        "OpenSkills.Enable": "1",
+        "OpenSkills.Weapons": "1",
+        "OpenSkills.Lockpicking": "1",
+    },
     "modules/mod_extraglyphs.conf": {
         # Glyph effects beyond the six sockets, kept per character and spec
         # and applied as passive auras (the sockets are a client limit, the
