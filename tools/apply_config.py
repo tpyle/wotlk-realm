@@ -81,9 +81,13 @@ SETTINGS = {
         "Updates.ExceptionShutdownDelay": "10000",
     },
     "modules/AutoBalance.conf": {
-        # instance (dungeon/raid) scaling; the open world is mod-worldscale
-        "AutoBalance.Enable.Global": "1",
-        "AutoBalance.LevelScaling": "1",
+        # Off. mod-worldscale scales instances now, and both modules multiply
+        # a creature's health and damage, so exactly one of them may be on.
+        # AutoBalance scales an instance by group size with its own level
+        # curve; worldscale scales per observer by level, which is what a
+        # realm played mostly solo with bots wants.
+        "AutoBalance.Enable.Global": "0",
+        "AutoBalance.LevelScaling": "0",
     },
     "modules/mod_worldscale.conf": {
         "WorldScale.Enable": "1",
@@ -104,6 +108,9 @@ SETTINGS = {
         # only - avoidance and experience keep the presented level. Live on
         # reload config; 10 gives 10 yards, 15 the old grey floor of 5.
         "WorldScale.Aggro.LevelsBelow": "5",
+        # Instances too, now that AutoBalance is off above.
+        "WorldScale.Dungeons": "1",
+        "WorldScale.Raids": "1",
         # quest XP measured at the player's level (upwards only, never a cut),
         # and low-level quests reported to the client as -1 so they render at the
         # player's level instead of grey

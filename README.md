@@ -717,14 +717,28 @@ rebuilds `patch-Z` from scratch at any time.
 
 ### World-wide level scaling
 
-Two modules, because instances and the open world need different handling:
+`mod-worldscale` (`server/modules/mod-worldscale`,
+`run/etc/modules/mod_worldscale.conf`) does all of it - open world, dungeons
+and raids.
 
-* **Instances** - `mod-autobalance` (`run/etc/modules/AutoBalance.conf`).
-  Scales dungeon and raid creatures to the group that walks in.
-* **Open world** - `mod-worldscale`
-  (`server/modules/mod-worldscale`, `run/etc/modules/mod_worldscale.conf`),
-  written for this server because autobalance is hard-gated to
-  `map->IsDungeon()` and does nothing outside instances.
+It was written because `mod-autobalance`, the usual answer, is hard-gated to
+`map->IsDungeon()` and does nothing outside instances. For a while the two
+shared the world: autobalance inside, worldscale outside. That ended when
+dungeons turned out not to be scaling in a way that mattered here - a realm
+played mostly solo with bots wants old content pulled up to the player, which
+is a *level* question, while autobalance's first question is how many people
+walked in. So `WorldScale.Dungeons` and `WorldScale.Raids` were added and
+**`AutoBalance.Enable.Global` is now 0**.
+
+The two cannot both be on. Both multiply a creature's health and damage, and
+run together they compound into nonsense; exactly one may own the ground.
+PvP instances are excluded either way - a battleground is already a level
+bracket and an arena is meant to be symmetrical.
+
+One detail in that rule is worth keeping: `Map::IsDungeon()` is *also* true
+for a raid, so the check asks about raids first. Reversed, a raid would follow
+the dungeon switch and `WorldScale.Raids` would silently do nothing. There is
+a test for exactly that.
 
 `mod-worldscale` scales *per player* and never touches creature stats in the
 world, because a creature in the open world is shared by everybody who can see
@@ -1514,10 +1528,12 @@ doing the actual balancing.
 
 Crucially it is **per observer**, which is why this uses the script hooks rather
 than `Creature::SetLevel()`. `SetLevel()` writes one value for everybody and
-drags the combat maths along with it - fine for mod-autobalance inside a dungeon
-where one party shares a level range (`ABAllCreatureScript.cpp:150` does exactly
-that), wrong in an open world where 500 bots from level 1 to 80 can all see the
-same boar. The core builds update blocks per player and patches tracked fields
+drags the combat maths along with it - the approach mod-autobalance takes
+inside a dungeon, where one party shares a level range
+(`ABAllCreatureScript.cpp:150` does exactly that), and wrong anywhere 500 bots
+from level 1 to 80 can all see the same boar. Per observer also means the same
+code needed nothing special to work in an instance once the map check let it
+in. The core builds update blocks per player and patches tracked fields
 in afterwards, so each observer can be sent a different number:
 
 ```cpp
@@ -2627,7 +2643,7 @@ Checked after the server came up with all 500 bots online:
 | Starting bags | 100 combinations have four 36 slot bags in `playercreateinfo_item` |
 | Client patch | `patch-Z.MPQ` (formerly `patch-4.MPQ`) reads back correctly with StormLib and is installed in the client's `Data/` |
 | `mod-worldscale` | loaded: `mod-worldscale: enabled (delta 0, up true, down true, xp true)` |
-| `mod-autobalance` | loaded |
+| `mod-autobalance` | loaded but disabled (`AutoBalance.Enable.Global = 0`); mod-worldscale scales instances |
 | `mod-bigbags` | login hook ran for all 500 characters (grant recorded in `character_settings`) |
 | `mod-aurastack` | startup reported `31 tracking spell(s) and 48 scroll spell(s) may now stack` - matching the DBC exactly: 22 creature trackers + 9 resource trackers, and 6 scroll buffs x 8 ranks. Toggling `AuraStack.Scrolls` to 0 and back through `reload config` put 48 spells back to stock exclusivity and then re-applied them, so the override is reversible without a restart |
 | `mod-ah-bot` | item pools loaded (1112 grey / 1121 white / 5216 green / 1553 blue / 760 purple items, plus 321 white and 43 green trade goods). 2000 listings appeared within a minute of the first start, spread across all eight seller names, all in the neutral house as expected with `AllowTwoSide.Interaction.Auction = 1`. Sampled prices match the configured bands: white items 1.3-2.3x vendor value (config 150-250%), greens 9.7-13.0x (config 800-1400%) |
