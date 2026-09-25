@@ -8,7 +8,10 @@
     Create. The craft would succeed if it were ever sent.
 
     This addon does not change any of that logic - it runs after Blizzard's own
-    and corrects three things:
+    and corrects three things (and then keeps correcting them: see the ticker
+    near the bottom, which re-applies the numbers every 0.3s while the window
+    is open, because some redraw path was wiping them a moment after they
+    appeared):
 
       * the reagent counts, which now include bank stock
       * the grey-out, removed for reagents the bank can cover
@@ -35,6 +38,16 @@
 ]]
 
 local HIGHLIGHT = HIGHLIGHT_FONT_COLOR
+
+-- /bankreagents debug prints what the counts came out as, per row, so a wrong
+-- number can be reported as numbers rather than as an impression.
+local debugging = false
+
+local function Debug(...)
+    if debugging then
+        print("|cff40c0ffBankReagents|r:", ...)
+    end
+end
 
 -- Bags plus bank, via GetItemCount's includeBank argument. Returns nil when
 -- the reagent has no link yet (the item is not cached client side), in which
@@ -67,6 +80,11 @@ local function BankAvailable(skillIndex)
             local possible = floor(playerReagentCount / reagentCount)
             if not canMake or possible < canMake then
                 canMake = possible
+            end
+
+            if debugging and not withBank then
+                Debug(("recipe %d reagent %d (%s): no item link yet, bag count %d used")
+                    :format(skillIndex, i, tostring(reagentName), playerReagentCount))
             end
         end
     end
@@ -210,6 +228,32 @@ local function RefreshSelection()
     end
 end
 
+-- A safety net under the hooks: re-apply the numbers while the window is open.
+--
+-- The hooks below cover the paths that are known to repaint the rows -
+-- TradeSkillFrame_Update, TradeSkillFrame_SetSelection, and the frame's own
+-- OnEvent, which is what blanked the counts for a moment after each craft.
+-- This catches anything else. Eight rows and a handful of reagents is nothing
+-- to recompute, and a tenth of a second is short enough that nobody sees the
+-- gap.
+local ticker = CreateFrame("Frame")
+local sinceLast = 0
+
+ticker:SetScript("OnUpdate", function(self, elapsed)
+    if not TradeSkillFrame or not TradeSkillFrame:IsShown() then
+        return
+    end
+
+    sinceLast = sinceLast + elapsed
+    if sinceLast < 0.1 then
+        return
+    end
+    sinceLast = 0
+
+    RefreshList()
+    RefreshSelection()
+end)
+
 local hooked = false
 
 local function Install()
@@ -219,6 +263,23 @@ local function Install()
     hooked = true
 
     -- Blizzard_TradeSkillUI is load on demand, so the functions below do not
+    -- The frame's own OnEvent is where the flicker came from. On
+    -- TRADE_SKILL_UPDATE - which fires the moment a craft finishes - the
+    -- handler disables both Create buttons, re-selects the recipe and calls
+    -- TradeSkillFrame_Update, repainting every row. hooksecurefunc cannot
+    -- reach a frame's script, so the counts stayed blank until something else
+    -- redrew them. HookScript runs after Blizzard's handler for the same
+    -- event, which is exactly the right moment to put them back.
+    if TradeSkillFrame.HookScript then
+        TradeSkillFrame:HookScript("OnEvent", function(self, event)
+            if event == "TRADE_SKILL_UPDATE" or event == "TRADE_SKILL_FILTER_UPDATE" then
+                Debug("OnEvent " .. tostring(event) .. ": re-applying")
+                RefreshList()
+                RefreshSelection()
+            end
+        end)
+    end
+
     -- exist until it has loaded. Post-hooks run after the original.
     hooksecurefunc("TradeSkillFrame_SetSelection", function()
         RequestPull(true)
@@ -267,4 +328,23 @@ end)
 -- ADDON_LOADED has already fired for it and will not fire again.
 if IsAddOnLoaded("Blizzard_TradeSkillUI") then
     Install()
+end
+
+-- /bankreagents debug   turn the per-row numbers on or off
+-- /bankreagents pull    ask the server to top the bags up now, ignoring the
+--                       throttle, for whatever recipe is selected
+SLASH_BANKREAGENTS1 = "/bankreagents"
+SLASH_BANKREAGENTS2 = "/bankr"
+SlashCmdList["BANKREAGENTS"] = function(msg)
+    msg = (msg or ""):lower()
+
+    if msg == "debug" then
+        debugging = not debugging
+        print("|cff40c0ffBankReagents|r: debug " .. (debugging and "on" or "off"))
+    elseif msg == "pull" then
+        RequestPull(true)
+        print("|cff40c0ffBankReagents|r: asked the server to top up the bags")
+    else
+        print("|cff40c0ffBankReagents|r: /bankreagents debug | pull")
+    end
 end
