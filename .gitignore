@@ -37,3 +37,7 @@ __pycache__/
 
 # Database dumps taken before risky upgrades.
 /backups/
+
+# Design notes for things not built yet. Kept out of the repository so nobody
+# mistakes a plan for a feature; see notes/README for why.
+/notes/
