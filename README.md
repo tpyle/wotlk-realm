@@ -1405,14 +1405,21 @@ playerbots' bags rather than these. Your own characters keep theirs.
 
 ### Bigger item stacks
 
-Trade goods stack to **999**; consumables and reagents to 200, the way retail
-eventually did - 2343 items in total, across two scripts.
+Trade goods and gems stack to **999**; consumables and reagents to 200, the
+way retail eventually did - 2410 items in total, across three scripts.
 
 `sql/08_trade_goods_stacks.sql` raises every stackable trade good (item class
 7) - 758 items, of which 593 used to stack to 20, 124 to 10 and 39 to 5. Ore,
 cloth, leather, herbs, stone, elemental and enchanting materials are all in
 here. The 168 trade goods that are genuinely non-stackable are left alone, and
 the bound is `stackable < 999` so the change only ever raises a limit.
+
+`sql/20_gem_stacks.sql` does the same for gems (item class 3), which were
+left on their retail 20 by the script above and made an odd seam: the ore that
+goes *into* a gem stacked a thousand deep while the gem stopped at twenty.
+Only 67 of the 677 gems stack at all - raw gems, from prospecting - and the
+other 610 are the cut and unique ones, left alone by the same `stackable > 1`
+bound.
 
 It went to 200 first (the retail figure) and to 999 later, once every layer
 that could cap it had been checked rather than assumed:
