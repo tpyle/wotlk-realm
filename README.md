@@ -1403,6 +1403,37 @@ Random bots are the exception: `mod-playerbots` equips its own bags
 whatever was in the bag slots when it re-gears a bot, so bots end up with
 playerbots' bags rather than these. Your own characters keep theirs.
 
+### Brewfest Revelers, and why they were hostile
+
+Worth writing down because the first guess was wrong. The revelers at the
+Alliance Brewfest camp showed as hostile to an Alliance character, which
+looked like the faction-choice module getting a team wrong. It was not:
+`character_settings` showed no team override for the character, and the cause
+is in stock data.
+
+Creature 24484 "Brewfest Reveler" ships on faction template **775**, whose
+`ourMask` is 5 - player plus **Horde**. A Human uses template 1, whose
+`hostileMask` is 12 (Horde plus monster), and
+`FactionTemplateEntry::IsHostileTo` falls through to
+`hostileMask & entry.ourMask` = `12 & 5` = 4, so the reveler reads as hostile.
+No reputation is involved: template 775's faction is 40, "Escortee", whose
+`reputationIndex` is -1, so the masks are the whole of the decision.
+
+That would be right for a Horde-camp NPC, except the single entry is spawned
+at every camp - 127 spawns, 49 in Durotar, 47 in Dun Morogh outside Ironforge
+and 31 on map 530 - so an Alliance character in their *own* camp is
+surrounded by Horde-flagged revelers.
+
+`sql/21_brewfest_reveler_faction.sql` gives it faction **35**, which is what
+all eight sibling entries use (Stormwind Reveler, Ironforge Reveler, Thunder
+Bluff Reveler and so on): friendly to everybody, which is what a festival NPC
+should be and what a shared spawn list implies was intended. Applied live with
+`.reload creature_template 24484`.
+
+Nothing in this project touched that creature - the only core updates
+mentioning it are a Spanish name and a model-verification flag - so this is a
+stock data bug rather than drift from anything built here.
+
 ### Bigger item stacks
 
 Trade goods and gems stack to **999**; consumables and reagents to 200, the

@@ -1,0 +1,30 @@
+-- ---------------------------------------------------------------------------
+-- Brewfest Revelers are friendly to everyone
+--
+-- Creature 24484 "Brewfest Reveler" ships on faction template 775, whose
+-- ourMask is 5 - player plus *Horde*. A Human uses template 1, whose
+-- hostileMask is 12 (Horde plus monster), and FactionTemplateEntry::IsHostileTo
+-- falls through to `hostileMask & entry.ourMask` = 12 & 5 = 4, so the reveler
+-- reads as hostile. No reputation is involved: template 775's faction is 40,
+-- "Escortee", whose reputationIndex is -1.
+--
+-- That would be correct for a Horde-camp NPC, but the one entry is spawned at
+-- every camp - 127 spawns: 49 in Durotar, 47 in Dun Morogh outside Ironforge,
+-- 31 on map 530 - so an Alliance character standing in their own faction's
+-- Brewfest camp is surrounded by hostile revelers.
+--
+-- Faction 35 is what the eight sibling entries use (Stormwind Reveler,
+-- Ironforge Reveler, Thunder Bluff Reveler, Orgrimmar Reveler and the rest):
+-- friendly to everybody, which is what a festival NPC should be and what a
+-- shared spawn list implies was intended.
+--
+-- The faithful-to-retail alternative is to clone the entry so each camp has
+-- its own faction, which means a new creature_template and repointing 47
+-- spawns for no visible difference on a realm where both sides share a world.
+--
+-- ".reload creature_template" applies this without a restart.
+--
+-- Idempotent. 21_brewfest_reveler_faction_revert.sql puts it back.
+-- ---------------------------------------------------------------------------
+
+UPDATE `creature_template` SET `faction` = 35 WHERE `entry` = 24484 AND `faction` = 775;
