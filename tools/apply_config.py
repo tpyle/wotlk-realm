@@ -207,6 +207,13 @@ SETTINGS = {
         "Transmogrification.CopperCost": "0",
         "Transmogrification.RequireToken": "0",
         "Transmogrification.AllowHeirloom": "1",
+        # Poor and common are usable as sources, not merely banked. The
+        # collection already recorded them (TrackUnusableItems), so the greys
+        # and whites a character has picked up become wearable the moment
+        # these flip - which is the point of tracking unusable items in the
+        # first place.
+        "Transmogrification.AllowPoor": "1",
+        "Transmogrification.AllowCommon": "1",
     },
     "modules/mod_worgoblin.conf": {
         # Worgen and Goblin as playable races (mod-worgoblin). The login
