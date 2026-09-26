@@ -109,6 +109,12 @@ SETTINGS = {
         # reload config; 10 gives 10 yards, 15 the old grey floor of 5.
         "WorldScale.Aggro.LevelsBelow": "5",
         # Instances too, now that AutoBalance is off above.
+        # Experience: scale it, but not all the way. Full scaling makes old
+        # content pay roughly as if it were current, which levels faster than
+        # intended; half the difference keeps it worth doing without that.
+        # Quests and kills are independent dials.
+        "WorldScale.QuestXPFraction": "0.5",
+        "WorldScale.KillXPFraction": "0.5",
         "WorldScale.Dungeons": "1",
         "WorldScale.Raids": "1",
         # quest XP measured at the player's level (upwards only, never a cut),
