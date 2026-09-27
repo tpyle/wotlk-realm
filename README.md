@@ -552,6 +552,30 @@ The replies are plain lines (`EG glyph <id> <spell> <item> <major|minor>
 chat box for anyone who wants to script it, but not from the console: they are
 `SEC_PLAYER`, `Console::No`, and only ever act on the caller.
 
+### Group experience is not divided
+
+`KillRewarder` pays each group member
+
+    _groupRate * memberLevel / _aliveSumLevel
+
+of a kill's experience - the group bonus, shared out in proportion to level -
+so a party of five earns roughly what one player would. That is a sensible
+balance measure on a realm full of people and a penalty on this one, where the
+group is usually bots.
+
+`WorldScale.GroupXPSplit = 0` forces that rate to 1.0, so every member is paid
+what they would have earned alone. **No core change was needed**: the rate
+arrives by reference through `OnPlayerRewardKillRewarder`, and `Player::GiveXP`
+uses its `group_rate` argument only for the chat message's "group bonus"
+figure, not for the amount - so overriding that one value is the whole
+decision.
+
+Deliberately unchanged, because these are the rules the split exists to
+support: a member too high-level for the victim still gets nothing, and a
+grey-level member in the party still halves the award for everybody
+(`KillRewarder::_RewardXP`). The group *bonus* goes with the split - the award
+is the solo amount, not 1.3 times it.
+
 ### Area loot
 
 `mod-aoe-loot` (community module, `server/modules/mod-aoe-loot`,
@@ -613,6 +637,18 @@ the account-wide dedupe, the chat notice and the
 `custom_unlocked_appearances` row are all exactly as for any other source -
 and mod-transmog stays an unmodified upstream clone, which is why this is a
 separate module rather than a fourth fork.
+
+A **won disenchant roll** needed more than that, and it is the clearest
+example of a gap that looks like it should already work. Group loot never
+calls `Player::SendLoot` for a disenchant: `Group.cpp` marks the item looted
+in the corpse and hands over only the materials, so no `Item` is ever created
+and `LOOT_DISENCHANTING` never occurs. The appearance was therefore lost in
+exactly the case that matters most - nobody equips an item they immediately
+disenchant. The fix goes through `OnPlayerGroupRollRewardItem`, which the core
+already called for need and greed wins but not for disenchant (a one-line
+addition in the fork); a disenchant arrives there with a null item pointer and
+`roll->itemid` naming what was destroyed. Need and greed wins are collected
+there too.
 
 Rules are the module defaults: same armour type, same weapon type and
 handedness, uncommon-to-epic plus heirlooms, no cost. Every one of those is a

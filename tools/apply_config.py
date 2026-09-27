@@ -115,6 +115,11 @@ SETTINGS = {
         # Quests and kills are independent dials.
         "WorldScale.QuestXPFraction": "0.5",
         "WorldScale.KillXPFraction": "0.5",
+        # Do not divide a kill's experience across the group. The group here is
+        # usually bots, so splitting it makes grouping a penalty rather than a
+        # balance measure; every member is paid what they would have earned
+        # alone. The anti-power-levelling rules still apply.
+        "WorldScale.GroupXPSplit": "0",
         "WorldScale.Dungeons": "1",
         "WorldScale.Raids": "1",
         # quest XP measured at the player's level (upwards only, never a cut),
