@@ -1439,6 +1439,29 @@ Random bots are the exception: `mod-playerbots` equips its own bags
 whatever was in the bag slots when it re-gears a bot, so bots end up with
 playerbots' bags rather than these. Your own characters keep theirs.
 
+### Soul Shards stack
+
+`sql/22_soul_shard_stacks.sql` takes Soul Shard (6265) from unstackable to 64
+per slot - the classic warlock bag problem.
+
+Two fields, and changing only the first would have looked broken:
+
+| field | was | now | what it controls |
+| --- | --- | --- | --- |
+| `stackable` | 1 | 64 | how many fit in one slot |
+| `MaxCount` | 32 | 64 | how many the character may hold at all |
+
+`MaxCount` is the catch: at 32 a warlock cannot hold a full stack, so it would
+fill to 32 and then refuse the next shard as "you can't carry any more". 64
+allows exactly one full stack and keeps a cap; 0 would remove the cap.
+`BagFamily` stays 4, so shards still go in soul bags.
+
+**It needs a restart, and no reload command will do.** Item templates are read
+once, at startup (`World.cpp:528` calls `ObjectMgr::LoadItemTemplates`), and
+the reload table covers `item_loot_template`, `item_enchantment_template`,
+`item_set_names` and `item_template_locale` - but not `item_template` itself.
+The same is true of the trade goods, gem and consumable stack changes above.
+
 ### Brewfest Revelers, and why they were hostile
 
 Worth writing down because the first guess was wrong. The revelers at the

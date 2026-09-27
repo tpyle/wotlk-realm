@@ -1,0 +1,38 @@
+-- ---------------------------------------------------------------------------
+-- Soul Shards stack to 64
+--
+-- Soul Shard (6265) ships unstackable - `stackable` 1 - which is the classic
+-- warlock bag problem: every shard takes its own slot.
+--
+-- Two fields matter, and only changing the first would have looked broken:
+--
+--   stackable  1  -> 64    how many fit in one slot
+--   MaxCount  32  -> 64    how many the character may hold *at all*
+--
+-- MaxCount is the reason: at 32 a warlock cannot hold a full 64 stack, so the
+-- stack would fill to 32 and refuse the next shard with "you can't carry any
+-- more". 64 keeps a cap while allowing exactly one full stack; 0 would remove
+-- the cap entirely.
+--
+-- Everything else about the item is left alone. BagFamily stays 4, so shards
+-- still go in soul bags, and bonding stays 1 (bind on pickup).
+--
+-- Stack size is server side only - the client is told it at runtime in
+-- SMSG_ITEM_QUERY_SINGLE_RESPONSE - so no client patch is needed, and a client
+-- patched with "Disable Cache" (as this realm's is) needs no cache clearing
+-- either.
+--
+-- HOWEVER: item templates are loaded once, at startup (World.cpp:528 calls
+-- ObjectMgr::LoadItemTemplates), and no ".reload" command re-reads them - the
+-- reload table has item_loot_template, item_enchantment_template,
+-- item_set_names and item_template_locale, but not item_template itself. So
+-- this takes effect at the next worldserver restart, not when it is applied.
+--
+-- Existing shards already in bags stay as single stacks until they are merged
+-- or a new shard is created into them.
+--
+-- Idempotent. 22_soul_shard_stacks_revert.sql puts it back.
+-- ---------------------------------------------------------------------------
+
+UPDATE `item_template` SET `stackable` = 64, `MaxCount` = 64
+WHERE `entry` = 6265 AND (`stackable` <> 64 OR `MaxCount` <> 64);
