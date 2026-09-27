@@ -1439,6 +1439,49 @@ Random bots are the exception: `mod-playerbots` equips its own bags
 whatever was in the bag slots when it re-gears a bot, so bots end up with
 playerbots' bags rather than these. Your own characters keep theirs.
 
+### Hunters, and the weapon they can actually use
+
+A Night Elf hunter was created holding an Old Blunderbuss and Light Shot while
+`playercreateinfo_skills` gives Night Elves the **Bows** skill - so the gun
+could not be fired and the bow was nowhere to be found.
+
+**Where it came from.** Starting gear is `CharStartOutfit.dbc`, read by
+`Player::Create` (`Player.cpp:630`). When mod-worgoblin went in,
+`install_worgoblin_dbc.sh` copied its 30 DBCs over ours *and refreshed the
+`.orig` baselines from them* - so its version of that table became the
+starting point, and it carries the gun kit for several bow races. Comparing
+with `run/data/dbc-before-worgoblin.tgz`: Night Elf, Human, Undead and Gnome
+all went from a bow kit to a gun kit, while Orc, Troll, Blood Elf, Draenei,
+Dwarf and Tauren were untouched.
+
+**A second gap, this one ours.** `playercreateinfo_skills` hands out starting
+proficiencies by race mask and was written when seven races could be hunters:
+Bows for Orc/Night Elf/Troll/Blood Elf, Guns for Dwarf/Tauren/Goblin/Worgen,
+Crossbows for Draenei. `01_all_classes_all_races.sql` let every race be a
+hunter and nothing widened those rows, so **Human, Undead and Gnome hunters
+started with no ranged proficiency at all** - whatever they were handed was
+unusable. `sql/23_hunter_ranged_skills.sql` adds them to the Bows mask
+(650 -> 731).
+
+**The fix derives one from the other**, so they cannot drift apart again:
+`tools/gen_hunter_start_kits.py` reads the skill masks out of
+`playercreateinfo_skills` and rewrites the ranged part of every hunter row to
+match - bow, gun or crossbow - keeping the race-specific weapons that already
+exist (Blood Elf's Warder's Shortbow, Draenei's Weathered Crossbow). Change a
+race's skill and its kit follows on the next run.
+
+Display data is never invented: each item's `DisplayItemID` and
+`InventoryType` are copied from a row that already uses that item, so the
+character-creation preview stays right. The generator runs after
+`gen_all_classes_dbc.py` in `install_worgoblin_dbc.sh` - it corrects rows that
+pass may have just filled in - and works on the live file rather than a
+`.orig`, since the classes pass owns that baseline.
+
+Worth noting for the next DBC swap: this is the second time replacing the DBC
+set has quietly changed behaviour (the first was the HD patches erasing the
+Worgen display rows). Anything that regenerates `run/data/dbc` should be
+followed by a look at what the module's own tables assert.
+
 ### Soul Shards stack
 
 `sql/22_soul_shard_stacks.sql` takes Soul Shard (6265) from unstackable to 64

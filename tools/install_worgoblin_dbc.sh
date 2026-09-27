@@ -51,6 +51,9 @@ done
 echo "installed $n module DBCs into $DBC"
 
 python3 "$ROOT/tools/gen_all_classes_dbc.py"
+# After the classes pass, because it corrects rows that pass may have just
+# filled in. Reads playercreateinfo_skills, so the database must be up.
+python3 "$ROOT/tools/gen_hunter_start_kits.py"
 fi
 
 # --- the HD patches -------------------------------------------------------

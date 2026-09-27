@@ -1,0 +1,31 @@
+-- ---------------------------------------------------------------------------
+-- Every race that can be a hunter starts with a ranged skill
+--
+-- playercreateinfo_skills hands hunters their starting proficiencies by race
+-- mask, and it was written when only seven races could be hunters:
+--
+--   Bows      (45)  raceMask  650  Orc, Night Elf, Troll, Blood Elf
+--   Guns      (46)  raceMask 2340  Dwarf, Tauren, Goblin, Worgen
+--   Crossbows (226) raceMask 1024  Draenei
+--
+-- 01_all_classes_all_races.sql let every race be a hunter, and nothing widened
+-- these rows, so Human, Undead and Gnome hunters start with *no* ranged
+-- proficiency at all - whatever ranged weapon they are handed cannot be used.
+--
+-- They join the Bows mask: 650 + 1 (Human) + 16 (Undead) + 64 (Gnome) = 731.
+-- Bows rather than Guns because the starting kit generator reads these rows
+-- and hands out the matching weapon, and a shortbow is the safer default for
+-- races with no established ranged identity here.
+--
+-- Goblin and Worgen are already in the Guns mask - mod-worgoblin's own SQL put
+-- them there - so they need nothing.
+--
+-- tools/gen_hunter_start_kits.py reads this table and rewrites the ranged part
+-- of each hunter's CharStartOutfit row to match, which is what keeps the
+-- weapon and the proficiency from disagreeing. Run it after this.
+--
+-- Idempotent. 23_hunter_ranged_skills_revert.sql puts it back.
+-- ---------------------------------------------------------------------------
+
+UPDATE `playercreateinfo_skills` SET `raceMask` = 731
+WHERE `classMask` = 4 AND `skill` = 45 AND `raceMask` = 650;
