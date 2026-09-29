@@ -1179,10 +1179,20 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 11,868 lines across 10 triggers, emitted to
-`sql/13_bot_lore.sql` by two generator files. The prose lives in Python because
-it *is* prose - it needs to be readable and editable. Re-run the generator,
-apply the SQL, and `.botlore reload` picks it up without a restart.
+**The corpus** is 11,868 lines across 10 triggers, emitted by two generator
+files to `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
+The prose lives in Python because it *is* prose - it needs to be readable and
+editable.
+
+Table and corpus are **bundled with the module**, not carried in this
+project's `sql/` directory, so the module is self-contained. The core's
+database updater applies module SQL at startup for every enabled module -
+`UpdateFetcher::ReceiveIncludedDirectories` walks
+`modules/<name>/data/sql/db-world` and registers what it finds with state
+`MODULE`, and a `MODULE` file whose hash has changed is re-applied - so
+regenerating the corpus and restarting publishes it with nothing to apply by
+hand. mod-openskills ships its two SQL files the same way. To publish without
+a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
@@ -1199,14 +1209,14 @@ apply the SQL, and `.botlore reload` picks it up without a restart.
 
 It is written in two halves, because they are two different kinds of writing.
 
-`tools/gen_bot_lore.py` holds the **placed** lines - this zone, that quest, that
+The module's `tools/gen_bot_lore.py` holds the **placed** lines - this zone, that quest, that
 named creature. Every id in it was checked against `quest_template`,
 `creature_template` or `item_template` first, which caught eight boss entries
 that were the wrong creature entirely (9019 is Emperor Dagran Thaurissan, not
 Grimlok). That half tops out in the high hundreds, because each line is authored
 individually.
 
-`tools/gen_bot_lore_combos.py` is the other half and supplies the volume. It
+Its `tools/gen_bot_lore_combos.py` is the other half and supplies the volume. It
 authors *fragments* along the axes the module can actually filter on, and
 multiplies them out. Two complete sentences joined with a space stay
 grammatical, so an object observation plus an archetype reaction produces a line
