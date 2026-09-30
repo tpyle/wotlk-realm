@@ -1179,7 +1179,7 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 2,615 lines across 10 triggers, emitted to
+**The corpus** is 3,111 lines across 10 triggers, emitted to
 `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
 Every line is hand-written. It used to be 11,868, and the shrinking was the
 point: see **Why the corpus got smaller** below.
@@ -1196,16 +1196,16 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
+| `idle` | 578 |
 | `zone_enter` | 532 |
-| `idle` | 438 |
-| `combat_start` | 410 |
-| `death` | 278 |
-| `kill_boss` | 211 |
-| `level_up` | 211 |
+| `combat_start` | 522 |
+| `death` | 331 |
+| `level_up` | 288 |
+| `kill_boss` | 245 |
 | `loot_rare` | 194 |
-| `quest_complete` | 152 |
-| `quest_accept` | 150 |
-| `kill` | 39 |
+| `quest_complete` | 193 |
+| `quest_accept` | 160 |
+| `kill` | 68 |
 
 Those totals are not what any one bot draws from, and the difference is the
 point of the design. A line written for a grim dwarf warlock is invisible to
@@ -1235,7 +1235,7 @@ Big one. Finally something that will not fall over when I look at it.
 %target has real weight to it. Good. I want to feel the swing land.
 ```
 
-Thirty files, 1,578 lines, each one a slice of the filter space: the three
+Forty files, 2,075 lines, each one a slice of the filter space: the three
 class groups, Alliance and Horde races, creature rank, item quality, group
 state, the cities, the classic zones, Outland and Northrend, weapons by kind
 and armour by material, quest work, gender, and three files of `idle` lines
@@ -1312,6 +1312,9 @@ event:
 | item grade | `ItemTemplate::Quality` | `MinQuality`, `MaxQuality` |
 | how dangerous the enemy is | `CreatureTemplate::rank` | `CreatureRank` |
 | who is with the bot | `Player::GetGroup()` | `GroupState` |
+| talent tree | `GetMostPointsTalentTree()` | `SpecMask` |
+| how far into their career | `GetLevel()` | `MinLevel`, `MaxLevel` |
+| side of the war | `GetTeamId()` | `TeamId` |
 
 The last three arrived together, and each closed a gap where the trigger
 already knew something the corpus could not ask about. `CreatureRank` is what
