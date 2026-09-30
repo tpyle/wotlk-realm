@@ -1179,7 +1179,7 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 3,604 lines across 10 triggers, emitted to
+**The corpus** is 4,103 lines across 10 triggers, emitted to
 `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
 Every line is hand-written. It used to be 11,868, and the shrinking was the
 point: see **Why the corpus got smaller** below.
@@ -1196,15 +1196,15 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
+| `zone_enter` | 683 |
+| `combat_start` | 667 |
 | `idle` | 628 |
-| `combat_start` | 622 |
-| `zone_enter` | 532 |
-| `death` | 431 |
-| `level_up` | 388 |
+| `level_up` | 487 |
+| `death` | 480 |
+| `quest_complete` | 341 |
 | `kill_boss` | 295 |
-| `quest_complete` | 293 |
-| `loot_rare` | 194 |
-| `quest_accept` | 160 |
+| `loot_rare` | 244 |
+| `quest_accept` | 210 |
 | `kill` | 68 |
 
 Those totals are not what any one bot draws from, and the difference is the
@@ -1230,7 +1230,15 @@ different filter: two writers on `death` split between the practical business
 of dying and the inward experience of it, and their output does not collide.
 A similarity sweep over all 2,568 authored lines found eight near-duplicate
 pairs, every one of them a collision with an *earlier* round rather than
-between the paired writers; seven were culled.
+between the paired writers; seven were culled. The round after that put *three*
+writers on one trigger and introduced no new near-duplicates at all.
+
+A trigger's total is also not the pool for a *place*. `zone_enter` looks like
+the healthiest trigger and was for a long time the thinnest in practice,
+because most of its lines are tied to a zone: with 402 lines spread over 74
+zones, a bot arriving somewhere uncovered had 22 to choose from. Place-agnostic
+arrival lines, leaning on `%zone` and `%area` to be specific without committing
+to a climate, are what fixed that.
 
 **Where the lines live.** Two places, by shape rather than by author.
 
@@ -1249,7 +1257,7 @@ Big one. Finally something that will not fall over when I look at it.
 %target has real weight to it. Good. I want to feel the swing land.
 ```
 
-Fifty files, 2,568 lines, each one a slice of the filter space: the three
+Sixty files, 3,067 lines, each one a slice of the filter space: the three
 class groups, Alliance and Horde races, creature rank, item quality, group
 state, the cities, the classic zones, Outland and Northrend, weapons by kind
 and armour by material, quest work, gender, and three files of `idle` lines
