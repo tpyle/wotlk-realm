@@ -1179,7 +1179,7 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 1,618 lines across 10 triggers, emitted to
+**The corpus** is 2,120 lines across 10 triggers, emitted to
 `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
 Every line is hand-written. It used to be 11,868, and the shrinking was the
 point: see **Why the corpus got smaller** below.
@@ -1196,16 +1196,16 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
-| `zone_enter` | 468 |
-| `combat_start` | 257 |
-| `idle` | 219 |
+| `zone_enter` | 532 |
+| `idle` | 408 |
+| `combat_start` | 306 |
+| `loot_rare` | 194 |
+| `death` | 173 |
 | `kill_boss` | 153 |
-| `death` | 143 |
+| `quest_accept` | 130 |
 | `level_up` | 113 |
-| `quest_accept` | 105 |
-| `loot_rare` | 94 |
-| `quest_complete` | 47 |
-| `kill` | 19 |
+| `quest_complete` | 72 |
+| `kill` | 39 |
 
 **Where the lines live.** Two places, by shape rather than by author.
 
@@ -1224,9 +1224,11 @@ Big one. Finally something that will not fall over when I look at it.
 %target has real weight to it. Good. I want to feel the swing land.
 ```
 
-Ten files, 500 lines, one per slice of the filter space - the three class
-groups, Alliance and Horde races, creature rank, item quality, group state,
-the Outland and Northrend zones, and quest work crossed with gender. Editing
+Twenty files, 1,083 lines, each one a slice of the filter space: the three
+class groups, Alliance and Horde races, creature rank, item quality, group
+state, the cities, the classic zones, Outland and Northrend, weapons by kind
+and armour by material, quest work, gender, and three files of `idle` lines
+because `idle` fires on a timer and repeats more than anything else. Editing
 the corpus is then editing prose with no Python syntax to get wrong, and the
 files diff one line at a time. Every filter value is checked against a table in
 the generator and an unknown one **stops the build**, because the alternative
@@ -1271,6 +1273,14 @@ lines back immediately, and the fragments remain the fastest way to produce
 volume if variety ever matters more than voice. `idle` is the thin one to watch,
 because it fires on a timer rather than on something happening, so repetition
 shows there first.
+
+**Understatement needs gating.** A good many combat lines only work against a
+small animal, which is the common case - "%target appears to have strong
+opinions about me" is fine against a wolf and absurd against a named rare. Those
+lines carry `rank=normal`, so they cannot fire on anything notable, and the
+creatures that are notable have their own lines. 76 of the 306 `combat_start`
+lines are gated this way, 25 are written for notable ranks, and 205 work against
+anything.
 
 **No line names a level.** `line()` refuses `%level` outright. A character who
 announces a number is describing a game statistic, which breaks the fiction the
