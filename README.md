@@ -1179,7 +1179,7 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 3,111 lines across 10 triggers, emitted to
+**The corpus** is 3,604 lines across 10 triggers, emitted to
 `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
 Every line is hand-written. It used to be 11,868, and the shrinking was the
 point: see **Why the corpus got smaller** below.
@@ -1196,14 +1196,14 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
-| `idle` | 578 |
+| `idle` | 628 |
+| `combat_start` | 622 |
 | `zone_enter` | 532 |
-| `combat_start` | 522 |
-| `death` | 331 |
-| `level_up` | 288 |
-| `kill_boss` | 245 |
+| `death` | 431 |
+| `level_up` | 388 |
+| `kill_boss` | 295 |
+| `quest_complete` | 293 |
 | `loot_rare` | 194 |
-| `quest_complete` | 193 |
 | `quest_accept` | 160 |
 | `kill` | 68 |
 
@@ -1217,6 +1217,20 @@ depth of one bot's pool but the number of bots: each speaks at most once every
 `BotLore.CooldownSeconds`, so a player walking through a quest hub hears many
 characters draw once from the whole corpus rather than one character draw
 repeatedly from its slice.
+
+That arithmetic decides where writing effort goes. An archetype line divides by
+eight, a class line by ten, a race line by twelve - so putting several writers
+on the *same* archetype cells buys far more per line than spreading them across
+narrower filters. The round that added 495 narrowly-filtered lines raised one
+bot's choices by about eleven per trigger; the round that added 493
+archetype-only lines raised them by seventeen to twenty-four. Overlap is the
+efficient shape, and the way to keep it from producing near-duplicates is to
+give each writer a different **angle** on the same situation rather than a
+different filter: two writers on `death` split between the practical business
+of dying and the inward experience of it, and their output does not collide.
+A similarity sweep over all 2,568 authored lines found eight near-duplicate
+pairs, every one of them a collision with an *earlier* round rather than
+between the paired writers; seven were culled.
 
 **Where the lines live.** Two places, by shape rather than by author.
 
@@ -1235,7 +1249,7 @@ Big one. Finally something that will not fall over when I look at it.
 %target has real weight to it. Good. I want to feel the swing land.
 ```
 
-Forty files, 2,075 lines, each one a slice of the filter space: the three
+Fifty files, 2,568 lines, each one a slice of the filter space: the three
 class groups, Alliance and Horde races, creature rank, item quality, group
 state, the cities, the classic zones, Outland and Northrend, weapons by kind
 and armour by material, quest work, gender, and three files of `idle` lines
