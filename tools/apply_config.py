@@ -171,10 +171,12 @@ SETTINGS = {
     "modules/mod_statbonus.conf": {
         "StatBonus.Enable": "1",
         # Policy, not a technical ceiling - the bonus is flat and stacks with
-        # gear without any cap of its own, so this is what catches an amount
-        # typed with one digit too many. Raise it when a grant needs to be
-        # bigger than a good trinket.
-        "StatBonus.Limit": "100",
+        # gear without any cap of its own, so this is only here to catch an
+        # amount typed with one digit too many. One number has to cover both
+        # kinds, and they are not on the same scale: a rating worth noticing is
+        # hundreds of points where a stat is tens, so it is set for the ratings
+        # and stats are simply granted well under it.
+        "StatBonus.Limit": "1000",
     },
     "modules/mod_talentgrant.conf": {
         "TalentGrant.Enable": "1",
