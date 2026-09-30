@@ -1179,7 +1179,7 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 2,120 lines across 10 triggers, emitted to
+**The corpus** is 2,615 lines across 10 triggers, emitted to
 `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
 Every line is hand-written. It used to be 11,868, and the shrinking was the
 point: see **Why the corpus got smaller** below.
@@ -1197,15 +1197,26 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 | trigger | lines |
 | --- | --- |
 | `zone_enter` | 532 |
-| `idle` | 408 |
-| `combat_start` | 306 |
+| `idle` | 438 |
+| `combat_start` | 410 |
+| `death` | 278 |
+| `kill_boss` | 211 |
+| `level_up` | 211 |
 | `loot_rare` | 194 |
-| `death` | 173 |
-| `kill_boss` | 153 |
-| `quest_accept` | 130 |
-| `level_up` | 113 |
-| `quest_complete` | 72 |
+| `quest_complete` | 152 |
+| `quest_accept` | 150 |
 | `kill` | 39 |
+
+Those totals are not what any one bot draws from, and the difference is the
+point of the design. A line written for a grim dwarf warlock is invisible to
+everybody else, so one character's pool for `combat_start` is nearer 39 than
+410 - archetype lines divide by eight, class lines by ten, race lines by
+twelve. Adding a hundred voice-gated lines to a trigger raises a single bot's
+choices by about eleven. What stops the realm sounding repetitive is not the
+depth of one bot's pool but the number of bots: each speaks at most once every
+`BotLore.CooldownSeconds`, so a player walking through a quest hub hears many
+characters draw once from the whole corpus rather than one character draw
+repeatedly from its slice.
 
 **Where the lines live.** Two places, by shape rather than by author.
 
@@ -1224,7 +1235,7 @@ Big one. Finally something that will not fall over when I look at it.
 %target has real weight to it. Good. I want to feel the swing land.
 ```
 
-Twenty files, 1,083 lines, each one a slice of the filter space: the three
+Thirty files, 1,578 lines, each one a slice of the filter space: the three
 class groups, Alliance and Horde races, creature rank, item quality, group
 state, the cities, the classic zones, Outland and Northrend, weapons by kind
 and armour by material, quest work, gender, and three files of `idle` lines
