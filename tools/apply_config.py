@@ -168,6 +168,14 @@ SETTINGS = {
         # whole matching corpus in the draw so a long session does not repeat
         "BotLore.SpecificityWeight": "6",
     },
+    "modules/mod_statbonus.conf": {
+        "StatBonus.Enable": "1",
+        # Policy, not a technical ceiling - the bonus is flat and stacks with
+        # gear without any cap of its own, so this is what catches an amount
+        # typed with one digit too many. Raise it when a grant needs to be
+        # bigger than a good trinket.
+        "StatBonus.Limit": "100",
+    },
     "modules/mod_talentgrant.conf": {
         "TalentGrant.Enable": "1",
         # Policy, not a technical ceiling - it catches a mistyped grant. The
