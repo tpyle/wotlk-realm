@@ -1179,10 +1179,10 @@ standing ovation that never ended. `EmoteStrategy` is the only route to either
 action, so with these off nothing the bots say comes from anywhere but the
 corpus.
 
-**The corpus** is 11,868 lines across 10 triggers, emitted by two generator
-files to `server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
-The prose lives in Python because it *is* prose - it needs to be readable and
-editable.
+**The corpus** is 1,618 lines across 10 triggers, emitted to
+`server/modules/mod-botlore/data/sql/db-world/base/botlore_lore_text.sql`.
+Every line is hand-written. It used to be 11,868, and the shrinking was the
+point: see **Why the corpus got smaller** below.
 
 Table and corpus are **bundled with the module**, not carried in this
 project's `sql/` directory, so the module is self-contained. The core's
@@ -1196,62 +1196,89 @@ a restart, apply the regenerated file yourself and run `.botlore reload`.
 
 | trigger | lines |
 | --- | --- |
-| `idle` | 3,548 |
-| `loot_rare` | 2,876 |
-| `quest_accept` | 1,353 |
-| `quest_complete` | 1,296 |
-| `zone_enter` | 933 |
-| `combat_start` | 678 |
-| `death` | 649 |
-| `level_up` | 268 |
-| `kill_boss` | 248 |
+| `zone_enter` | 468 |
+| `combat_start` | 257 |
+| `idle` | 219 |
+| `kill_boss` | 153 |
+| `death` | 143 |
+| `level_up` | 113 |
+| `quest_accept` | 105 |
+| `loot_rare` | 94 |
+| `quest_complete` | 47 |
 | `kill` | 19 |
 
-It is written in two halves, because they are two different kinds of writing.
+**Where the lines live.** Two places, by shape rather than by author.
 
-The module's `tools/gen_bot_lore.py` holds the **placed** lines - this zone, that quest, that
-named creature. Every id in it was checked against `quest_template`,
-`creature_template` or `item_template` first, which caught eight boss entries
-that were the wrong creature entirely (9019 is Emperor Dagran Thaurissan, not
-Grimlok). That half tops out in the high hundreds, because each line is authored
-individually.
+The module's `tools/gen_bot_lore.py` holds lines that need code beside them -
+a loop, or a table of creature and quest ids. Every id in it was checked
+against `quest_template`, `creature_template` or `item_template` first, which
+caught eight boss entries that were the wrong creature entirely (9019 is
+Emperor Dagran Thaurissan, not Grimlok).
 
-Its `tools/gen_bot_lore_combos.py` is the other half and supplies the volume. It
-authors *fragments* along the axes the module can actually filter on, and
-multiplies them out. Two complete sentences joined with a space stay
-grammatical, so an object observation plus an archetype reaction produces a line
-neither fragment was written to be:
+`data/lines/*.txt` holds the rest, as plain text. A header names the filters
+and the lines under it inherit them:
+
+```
+@ trigger=combat_start rank=elite archetype=savage
+Big one. Finally something that will not fall over when I look at it.
+%target has real weight to it. Good. I want to feel the swing land.
+```
+
+Ten files, 500 lines, one per slice of the filter space - the three class
+groups, Alliance and Horde races, creature rank, item quality, group state,
+the Outland and Northrend zones, and quest work crossed with gender. Editing
+the corpus is then editing prose with no Python syntax to get wrong, and the
+files diff one line at a time. Every filter value is checked against a table in
+the generator and an unknown one **stops the build**, because the alternative
+is a filter silently reading as "any" and a line escaping into situations it
+was never written for.
+
+### Why the corpus got smaller
+
+`tools/gen_bot_lore_combos.py` used to supply nine lines in ten. It authors
+*fragments* along the axes the module can filter on and multiplies them out,
+joining two complete sentences with a space:
 
 ```
 "A two-handed hammer. Heavy work, and honest work."        item class 2/5
 "The Light gave it into my hands. I will not waste it."    devout
 ```
 
-becomes one row filtered to *devout, plate-wearing, looting a two-handed mace* -
-which given the archetype table can only be a paladin. Roughly 900 authored
-fragments produce just under 11,000 lines that way, and the result is not
-repetitive precisely because each line carries the full filter set of both
-halves: a bot only ever draws from the slice that fits who it is.
+That is where 11,868 lines came from, and it is also why the corpus read as
+machine-made. The pairs were never checked for coherence, so bots praised a
+sword and dismissed it in the same breath ("It moves like cloth and stops like
+steel. Not what I asked for. Better than what I expected."), or answered their
+own childhood with a remark about a book ("My mother taught me the draw. My
+beast taught me the rest. There is a book about this somewhere, and it is
+probably wrong."). 11,445 of the 11,868 rows were two or more sentences, and
+the fragments themselves were fine - the joins were not.
 
-The layers, and what each one crosses:
+So the layer is switched off, one trigger at a time, as authored lines arrive
+to replace it. `AUTHORED_ONLY` in that file now lists all ten triggers, which
+disables it entirely. What the switch cost, trigger by trigger:
 
-Counted by which filters a row actually carries:
+| trigger | before | authored | glued, dropped |
+| --- | --- | --- | --- |
+| `idle` | 3,627 | 219 | 3,408 |
+| `loot_rare` | 2,926 | 94 | 2,832 |
+| `quest_accept` | 1,371 | 109 | 1,262 |
+| `quest_complete` | 1,313 | 50 | 1,263 |
+| `zone_enter` | 1,028 | 468 | 560 |
+| `kill_boss` | 313 | 155 | 158 |
 
-| slice | crosses | rows |
-| --- | --- | --- |
-| class alone | 10 classes x their 4 archetypes, all triggers | 2,450 |
-| item category | 26 categories x archetype x wielding class | 2,199 |
-| named quests | 38 quest ids x 6 lines x archetype | 2,124 |
-| race alone | 10 races x 8 archetypes | 1,638 |
-| specialisation | 30 class/tree pairs x archetype | 780 |
-| race and class together | 50 race/class pairs x archetype | 784 |
-| named items | 36 item ids x archetype | 660 |
-| gender | 20 class forms and 20 race forms x archetype | 484 |
-| placed by zone or area | 74 zones, all four continents | 252 |
-| generic fallbacks | nothing - these only surface when nothing else fits | 467 |
-| named creatures | 48 verified boss entries | 48 |
+Nothing was deleted. Dropping a trigger from `AUTHORED_ONLY` puts its joined
+lines back immediately, and the fragments remain the fastest way to produce
+volume if variety ever matters more than voice. `idle` is the thin one to watch,
+because it fires on a timer rather than on something happening, so repetition
+shows there first.
 
-**Identity signals.** Six, all read straight off the character:
+**No line names a level.** `line()` refuses `%level` outright. A character who
+announces a number is describing a game statistic, which breaks the fiction the
+corpus exists for; one who notices their hands are steadier than yesterday does
+not. Removing it took rewriting 27 source strings that produced 111 rows.
+
+**Identity and situation signals.** Nine, all read off the character or the
+event:
 
 | signal | source | filter column |
 | --- | --- | --- |
@@ -1261,6 +1288,25 @@ Counted by which filters a row actually carries:
 | gender | `getGender()` | `Gender` |
 | specialisation | `GetMostPointsTalentTree()` | `SpecMask` |
 | item category | `ItemTemplate::Class`/`SubClass` | `ItemClass`, `ItemSubClass` |
+| item grade | `ItemTemplate::Quality` | `MinQuality`, `MaxQuality` |
+| how dangerous the enemy is | `CreatureTemplate::rank` | `CreatureRank` |
+| who is with the bot | `Player::GetGroup()` | `GroupState` |
+
+The last three arrived together, and each closed a gap where the trigger
+already knew something the corpus could not ask about. `CreatureRank` is what
+lets one line cover every elite instead of naming each creature; `-1` is its
+wildcard rather than 0, because 0 is a real rank and an "ordinary creature" line
+must not fire on a world boss. `MinQuality`/`MaxQuality` are a range in the
+style of `MinLevel`/`MaxLevel`, so an epic-only line is 4 and 4 rather than a
+floor that would also catch legendaries. `GroupState` distinguishes alone, in a
+group, and in a group holding a *real player* - the last because "stay close to
+me" needs somebody there to hear it, and a group of nothing but bots is not
+somebody.
+
+`combat_start` also gained the enemy's identity. It had none: the enemy arrives
+as a `Unit` because it can be another player, and nothing resolved it, so a kill
+line could name a creature but a combat line could not. It now fills entry and
+rank when `ToCreature()` succeeds.
 
 Gender is only used where it changes the words - kinship and the forms of
 address the orders use, *brother* and *sister* of the Light, *son* and
