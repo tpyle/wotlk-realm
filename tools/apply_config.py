@@ -168,6 +168,20 @@ SETTINGS = {
         # whole matching corpus in the draw so a long session does not repeat
         "BotLore.SpecificityWeight": "6",
     },
+    "modules/mod_collection.conf": {
+        "Collection.Enable": "1",
+        "Collection.Mounts": "1",
+        "Collection.Companions": "1",
+        # Collections belong to the account rather than to a faction, and the
+        # race mask on a mount is a faction gate and not a mechanical
+        # requirement - only the trainer code reads it. Class restrictions are
+        # enforced either way, so no mage gets a felsteed out of this.
+        "Collection.CrossFaction": "1",
+        # The 500 bots share a handful of accounts, so without this every bot
+        # would pool its mounts with its account siblings.
+        "Collection.SkipBots": "1",
+        "Collection.Announce": "1",
+    },
     "modules/mod_statbonus.conf": {
         "StatBonus.Enable": "1",
         # Policy, not a technical ceiling - the bonus is flat and stacks with
