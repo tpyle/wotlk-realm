@@ -177,6 +177,11 @@ SETTINGS = {
         # requirement - only the trainer code reads it. Class restrictions are
         # enforced either way, so no mage gets a felsteed out of this.
         "Collection.CrossFaction": "1",
+        # A mount spell carries no requirement of its own - the riding and
+        # profession gates live on the item that teaches it - so without this a
+        # shared mount is rideable the instant it arrives, at any level and with
+        # no riding at all.
+        "Collection.RespectRequirements": "1",
         # The 500 bots share a handful of accounts, so without this every bot
         # would pool its mounts with its account siblings.
         "Collection.SkipBots": "1",
