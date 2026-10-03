@@ -31,18 +31,18 @@ SETTINGS = {
     # not exist, so the threshold goes to its maximum (the config validator caps
     # it at MAX_LEVEL) and nothing is ever classed as trivial.
     "Quests.LowLevelHideDiff": "80",
-    # The dungeon finder's level gates come from LFGDungeons.dbc by default,
-    # which cannot be edited per realm. This moves them to
-    # dungeon_access_template instead, where they are editable SQL - and every
-    # one of its 121 rows has max_level = 0, so the "you have outlevelled this"
-    # lock (LFG_LOCKSTATUS_TOO_HIGH_LEVEL) stops being applied at all while the
-    # lower bounds stay.
+    # Back to 0 now that LFGDungeons.dbc itself carries the right caps - see
+    # tools/gen_lfg_dbc.py, which raises MaxLevel to 80 on the 44 normal
+    # dungeons and 16 heroics that sat lower, and leaves every MinLevel alone.
     #
-    # Caveat: a map/difficulty with no row in that table then has neither
-    # bound. If that turns out to matter, LFGMgr calls
-    # OnInitializeLockedDungeons with lockData by reference after every check,
-    # so a module can clear exactly the locks we want instead.
-    "DungeonAccessRequirements.LFGLevelDBCOverride": "1",
+    # The override was the first attempt and it had to go: it moved the gates
+    # to dungeon_access_template, where all 121 rows have max_level = 0, so it
+    # dropped the upper bound - but it also left any map and difficulty with no
+    # row in that table with no bound at all. Reading the DBC keeps the lower
+    # bounds the base game set, which is the half worth keeping. It also never
+    # fixed the symptom, because the client declines to list an outlevelled
+    # dungeon from its own copy of the DBC whatever the server says about locks.
+    "DungeonAccessRequirements.LFGLevelDBCOverride": "0",
         # Log files: mode "w" truncates each file when the server starts (and
         # on "reload config"), but nothing bounded them in between. The sixth
         # appender argument is a size cap in bytes: past it the core renames
