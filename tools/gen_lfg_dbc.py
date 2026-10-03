@@ -16,6 +16,14 @@ What this changes, and nothing else:
                            LFG_TYPE_RANDOM (6) where it is currently lower
     TargetLevelMax -> 80   for LFG_TYPE_RANDOM (6) only, same condition
 
+and two rows are appended: "Random Dungeon", every normal dungeon at once, and
+"Random Heroic", every heroic. They point at the two synthetic groups the core
+fills by kind (LFG_GROUP_ALL_DUNGEONS and LFG_GROUP_ALL_HEROICS in LFGMgr.h),
+because a dungeon carries exactly one GroupID and no stock group means "all of
+them". Level appropriateness needs no help: GetCompatibleDungeons strips
+whatever is locked for the party, so a level 15 picking Random Dungeon draws
+from the three dungeons open at 15 and an eighty draws from all of them.
+
 MinLevel is left exactly as it is, so a dungeon keeps the lower bound the base
 game gave it - a level 20 still cannot queue for Karazhan. Raids (type 2) are
 not touched: every one of them already sits at 83. Type 4 is left alone because
@@ -77,12 +85,61 @@ STAGING_DBC = ROOT / "client-patch/staging/DBFilesClient/LFGDungeons.dbc"
 # DBCStructure.h). Name occupies 1-17, which is why these start so late.
 I_ID, I_MIN_LEVEL, I_MAX_LEVEL, I_TYPE = 0, 18, 19, 26
 I_TARGET_LEVEL_MAX = 22
+I_NAME = 1
+I_TARGET_LEVEL, I_TARGET_LEVEL_MIN = 20, 21
+I_MAP, I_DIFFICULTY, I_FLAGS = 23, 24, 25
+I_FACTION, I_TEXTURE, I_EXPANSION, I_ORDER_INDEX, I_GROUP = 27, 28, 29, 30, 31
+I_NAME_LANG_MASK, I_DESCRIPTION_LANG_MASK = 17, 48
 
 LFG_TYPE_DUNGEON = 1
 LFG_TYPE_HEROIC = 5
 LFG_TYPE_RANDOM = 6
 
 RAISE_TO = 80
+
+# Appending a row means appending its name to the string block, so these carry
+# the whole row rather than a patch. Field numbers follow LFGDungeonEntry.
+#
+# The template for every other value is the stock Random Classic Dungeon row
+# (258): Faction -1, Flags 3, no map, no texture, no description. TargetLevel is
+# the field the client tints the entry by; the stock randoms set it to the
+# middle of their range, so Random Dungeon mirrors that and reads grey to an
+# eighty, which is what was asked for elsewhere. Random Heroic spans 70 to 80
+# and takes 80, as the Lich King heroic row does.
+NEW_ROWS = [
+    {
+        "id": 300,
+        "name": "Random Dungeon",
+        "min_level": 15,
+        "max_level": 80,
+        "target_level": 55,
+        "target_level_min": 15,
+        "target_level_max": 80,
+        "difficulty": 0,
+        "expansion": 0,
+        "group": 255,          # LFG_GROUP_ALL_DUNGEONS
+    },
+    {
+        "id": 301,
+        "name": "Random Heroic",
+        # 70, because the TBC heroics start there; the Lich King ones are
+        # min 80 and simply stay locked until then.
+        "min_level": 70,
+        "max_level": 80,
+        "target_level": 80,
+        "target_level_min": 70,
+        "target_level_max": 80,
+        "difficulty": 1,
+        "expansion": 1,
+        "group": 254,          # LFG_GROUP_ALL_HEROICS
+    },
+]
+
+# Values every row shares, read out of the stock randoms.
+NAME_LANG_MASK = 16712190
+DESCRIPTION_LANG_MASK = 16712188
+FACTION_ANY = 0xFFFFFFFF
+RANDOM_FLAGS = 3
 
 
 def read_dbc(path):
@@ -103,6 +160,34 @@ def field_offset(index, record, fields, record_size):
         sys.exit(f"field {index} is past the end of a {fields} field record")
 
     return 20 + record * record_size + index * 4
+
+
+def build_row(spec, fields, name_offset):
+    """One record as a tuple of `fields` uint32s."""
+    row = [0] * fields
+
+    row[I_ID] = spec["id"]
+    row[I_NAME] = name_offset
+    row[I_NAME_LANG_MASK] = NAME_LANG_MASK
+    row[I_DESCRIPTION_LANG_MASK] = DESCRIPTION_LANG_MASK
+
+    row[I_MIN_LEVEL] = spec["min_level"]
+    row[I_MAX_LEVEL] = spec["max_level"]
+    row[I_TARGET_LEVEL] = spec["target_level"]
+    row[I_TARGET_LEVEL_MIN] = spec["target_level_min"]
+    row[I_TARGET_LEVEL_MAX] = spec["target_level_max"]
+
+    row[I_MAP] = 0                      # a random entry has no map of its own
+    row[I_DIFFICULTY] = spec["difficulty"]
+    row[I_FLAGS] = RANDOM_FLAGS
+    row[I_TYPE] = LFG_TYPE_RANDOM
+    row[I_FACTION] = FACTION_ANY
+    row[I_TEXTURE] = 0
+    row[I_EXPANSION] = spec["expansion"]
+    row[I_ORDER_INDEX] = 0
+    row[I_GROUP] = spec["group"]
+
+    return row
 
 
 def main():
@@ -134,11 +219,46 @@ def main():
         if get(I_TYPE) == LFG_TYPE_RANDOM and get(I_TARGET_LEVEL_MAX) < RAISE_TO:
             struct.pack_into("<I", data, field_offset(I_TARGET_LEVEL_MAX, record, fields, record_size), RAISE_TO)
 
-    SERVER_DBC.write_bytes(data)
-    print(f"{SERVER_DBC}: raised MaxLevel to {RAISE_TO} on {len(changed)} of {records} rows")
+    # --- the appended rows ------------------------------------------------
+    #
+    # Records come first and the string block follows, so a new row has to be
+    # spliced in between the two and the header's counts corrected. The block
+    # already begins with a NUL, which is why an unset string field reading 0
+    # means "empty" rather than pointing at the first name.
+    header = bytes(data[:20])
+    body = bytearray(data[20:20 + records * record_size])
+    strings = bytearray(data[20 + records * record_size:])
+
+    existing_ids = {
+        struct.unpack_from("<I", body, record * record_size + I_ID * 4)[0]
+        for record in range(records)
+    }
+
+    added = []
+
+    for spec in NEW_ROWS:
+        if spec["id"] in existing_ids:
+            sys.exit(f"id {spec['id']} is already in the file; pick another for {spec['name']!r}")
+
+        name_offset = len(strings)
+        strings += spec["name"].encode("utf8") + b"\0"
+
+        row = build_row(spec, fields, name_offset)
+        body += struct.pack(f"<{fields}I", *row)
+        added.append(spec)
+
+    out = bytearray(header)
+    struct.pack_into("<II", out, 4, records + len(added), fields)
+    struct.pack_into("<I", out, 16, len(strings))
+    out += body
+    out += strings
+
+    SERVER_DBC.write_bytes(out)
+    print(f"{SERVER_DBC}: raised MaxLevel to {RAISE_TO} on {len(changed)} of {records} rows, "
+          f"appended {len(added)}")
 
     if STAGING_DBC.parent.is_dir():
-        STAGING_DBC.write_bytes(data)
+        STAGING_DBC.write_bytes(out)
         print(f"{STAGING_DBC}: same file staged for patch-Z.MPQ")
     else:
         print(f"note: {STAGING_DBC.parent} is missing, so nothing was staged for the client")
@@ -149,6 +269,10 @@ def main():
 
     print(f"  {counts[LFG_TYPE_DUNGEON]} normal dungeon(s), {counts[LFG_TYPE_HEROIC]} heroic(s), "
           f"{counts[LFG_TYPE_RANDOM]} random option(s); MinLevel untouched throughout")
+
+    for spec in added:
+        print(f"  + id {spec['id']} {spec['name']!r}: levels {spec['min_level']}-{spec['max_level']}, "
+              f"group {spec['group']}")
 
 
 if __name__ == "__main__":
