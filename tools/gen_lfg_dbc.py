@@ -12,14 +12,23 @@ and the client patch for the client.
 
 What this changes, and nothing else:
 
-    MaxLevel -> 80   for LFG_TYPE_DUNGEON (1) and LFG_TYPE_HEROIC (5)
-                     where it is currently lower
+    MaxLevel -> 80   for LFG_TYPE_DUNGEON (1), LFG_TYPE_HEROIC (5) and
+                     LFG_TYPE_RANDOM (6) where it is currently lower
 
 MinLevel is left exactly as it is, so a dungeon keeps the lower bound the base
 game gave it - a level 20 still cannot queue for Karazhan. Raids (type 2) are
 not touched: every one of them already sits at 83. Type 4 is left alone because
 the server does not even load it (LFGMgr::LoadLFGDungeons only keeps types 1,
 2, 5 and 6).
+
+The random entries (type 6) need raising as well, and it is easy to miss them.
+Unlocking the dungeons is not enough on its own: "Random Classic Dungeon" is
+itself an LFGDungeons row with its own range, capped at 58, so an eighty could
+reach every classic dungeon individually and still not be offered the random
+option. Their pools are unaffected either way, being built per GroupID
+(CachedDungeonMapStore[dungeon.group]) and then filtered only by what is locked
+for the party - GetCompatibleDungeons - so raising the cap widens who may pick
+the option and not what the option contains.
 
 Entry requirements are a different system and are not affected: walking into an
 instance portal is gated by dungeon_access_template and
@@ -55,6 +64,7 @@ I_ID, I_MIN_LEVEL, I_MAX_LEVEL, I_TYPE = 0, 18, 19, 26
 
 LFG_TYPE_DUNGEON = 1
 LFG_TYPE_HEROIC = 5
+LFG_TYPE_RANDOM = 6
 
 RAISE_TO = 80
 
@@ -94,7 +104,7 @@ def main():
         def get(index):
             return struct.unpack_from("<I", data, field_offset(index, record, fields, record_size))[0]
 
-        if get(I_TYPE) not in (LFG_TYPE_DUNGEON, LFG_TYPE_HEROIC):
+        if get(I_TYPE) not in (LFG_TYPE_DUNGEON, LFG_TYPE_HEROIC, LFG_TYPE_RANDOM):
             continue
 
         if get(I_MAX_LEVEL) >= RAISE_TO:
@@ -112,9 +122,12 @@ def main():
     else:
         print(f"note: {STAGING_DBC.parent} is missing, so nothing was staged for the client")
 
-    dungeons = sum(1 for _, _, _, t in changed if t == LFG_TYPE_DUNGEON)
-    heroics = len(changed) - dungeons
-    print(f"  {dungeons} normal dungeon(s), {heroics} heroic(s); MinLevel untouched throughout")
+    counts = {LFG_TYPE_DUNGEON: 0, LFG_TYPE_HEROIC: 0, LFG_TYPE_RANDOM: 0}
+    for _, _, _, kind in changed:
+        counts[kind] += 1
+
+    print(f"  {counts[LFG_TYPE_DUNGEON]} normal dungeon(s), {counts[LFG_TYPE_HEROIC]} heroic(s), "
+          f"{counts[LFG_TYPE_RANDOM]} random option(s); MinLevel untouched throughout")
 
 
 if __name__ == "__main__":
