@@ -12,8 +12,9 @@ and the client patch for the client.
 
 What this changes, and nothing else:
 
-    MaxLevel -> 80   for LFG_TYPE_DUNGEON (1), LFG_TYPE_HEROIC (5) and
-                     LFG_TYPE_RANDOM (6) where it is currently lower
+    MaxLevel       -> 80   for LFG_TYPE_DUNGEON (1), LFG_TYPE_HEROIC (5) and
+                           LFG_TYPE_RANDOM (6) where it is currently lower
+    TargetLevelMax -> 80   for LFG_TYPE_RANDOM (6) only, same condition
 
 MinLevel is left exactly as it is, so a dungeon keeps the lower bound the base
 game gave it - a level 20 still cannot queue for Karazhan. Raids (type 2) are
@@ -29,6 +30,20 @@ option. Their pools are unaffected either way, being built per GroupID
 (CachedDungeonMapStore[dungeon.group]) and then filtered only by what is locked
 for the party - GetCompatibleDungeons - so raising the cap widens who may pick
 the option and not what the option contains.
+
+MaxLevel alone did not make them selectable, and TargetLevelMax is why. The
+server is satisfied by MaxLevel - GetRandomAndSeasonalDungeons tests
+minlevel <= level <= maxlevel and nothing else - but the client went on
+offering an eighty only the two Lich King options, which were the only randoms
+whose TargetLevelMax reached 80 (58, 68 and 73 for the other three). So the
+client filters the random list on the target range instead, and that field has
+to move too.
+
+TargetLevel itself is deliberately left alone, here and on the dungeons, so an
+outlevelled entry still shows grey. The server never reads any of the target
+fields - LFGDungeonData keeps only minlevel and maxlevel - so they are free to
+change, but TargetLevel is what tints the entry, it is static, and one value
+serves every viewer.
 
 Entry requirements are a different system and are not affected: walking into an
 instance portal is gated by dungeon_access_template and
@@ -61,6 +76,7 @@ STAGING_DBC = ROOT / "client-patch/staging/DBFilesClient/LFGDungeons.dbc"
 # Field indices from the core's LFGDungeonEntry (src/server/shared/DataStores/
 # DBCStructure.h). Name occupies 1-17, which is why these start so late.
 I_ID, I_MIN_LEVEL, I_MAX_LEVEL, I_TYPE = 0, 18, 19, 26
+I_TARGET_LEVEL_MAX = 22
 
 LFG_TYPE_DUNGEON = 1
 LFG_TYPE_HEROIC = 5
@@ -112,6 +128,11 @@ def main():
 
         changed.append((get(I_ID), get(I_MIN_LEVEL), get(I_MAX_LEVEL), get(I_TYPE)))
         struct.pack_into("<I", data, field_offset(I_MAX_LEVEL, record, fields, record_size), RAISE_TO)
+
+        # Only the random options, and only because the client reads this one
+        # rather than MaxLevel when deciding which randoms to offer.
+        if get(I_TYPE) == LFG_TYPE_RANDOM and get(I_TARGET_LEVEL_MAX) < RAISE_TO:
+            struct.pack_into("<I", data, field_offset(I_TARGET_LEVEL_MAX, record, fields, record_size), RAISE_TO)
 
     SERVER_DBC.write_bytes(data)
     print(f"{SERVER_DBC}: raised MaxLevel to {RAISE_TO} on {len(changed)} of {records} rows")
