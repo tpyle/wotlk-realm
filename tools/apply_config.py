@@ -19,6 +19,30 @@ LOGS = "/root/classic/logs"
 # file -> { config key: value }
 SETTINGS = {
     "worldserver.conf": {
+    # mod-worldscale scales every quest to the player's level, which is what
+    # makes them read as yellow in the quest menu - that path goes through
+    # OnPlayerQuestComputeLevel. The minimap icon does not: GetQuestDialogStatus
+    # works out "low level" from Player::GetQuestLevel, an inline with no hook,
+    # so it still saw the real quest level and sent
+    # DIALOG_STATUS_LOW_LEVEL_AVAILABLE - which the client only draws when the
+    # player has ticked "Show Low Level Quests".
+    #
+    # On a realm where quests scale, "low level quest" is a category that should
+    # not exist, so the threshold goes to its maximum (the config validator caps
+    # it at MAX_LEVEL) and nothing is ever classed as trivial.
+    "Quests.LowLevelHideDiff": "80",
+    # The dungeon finder's level gates come from LFGDungeons.dbc by default,
+    # which cannot be edited per realm. This moves them to
+    # dungeon_access_template instead, where they are editable SQL - and every
+    # one of its 121 rows has max_level = 0, so the "you have outlevelled this"
+    # lock (LFG_LOCKSTATUS_TOO_HIGH_LEVEL) stops being applied at all while the
+    # lower bounds stay.
+    #
+    # Caveat: a map/difficulty with no row in that table then has neither
+    # bound. If that turns out to matter, LFGMgr calls
+    # OnInitializeLockedDungeons with lockData by reference after every check,
+    # so a module can clear exactly the locks we want instead.
+    "DungeonAccessRequirements.LFGLevelDBCOverride": "1",
         # Log files: mode "w" truncates each file when the server starts (and
         # on "reload config"), but nothing bounded them in between. The sixth
         # appender argument is a size cap in bytes: past it the core renames
@@ -152,6 +176,13 @@ SETTINGS = {
         "BotLore.Chance": "12",
         "BotLore.CooldownSeconds": "1200",
         "BotLore.IdleSeconds": "900",
+        # A burst is not one bot talking too often, it is eight bots talking
+        # once each in the same instant - they are correlated by the world, not
+        # by a timer, and the earshot gate makes every bot near a player
+        # eligible the moment they walk up. So the throttle is on the listening
+        # end: this is the shortest gap between two lines the same player
+        # hears, from any bot.
+        "BotLore.MinGapSeconds": "20",
         # The two rare, earned moments are worth hearing when they happen.
         "BotLore.Chance.KillBoss": "50",
         "BotLore.Chance.LevelUp": "35",
