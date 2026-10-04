@@ -24,9 +24,11 @@
     That is the display half. The other half is why this addon talks to the
     server at all: the client runs its own reagent check against the bags in
     the executable, before sending a craft, and no addon can change that. So
-    when a recipe is selected (and again after every craft) the addon asks the
-    server to move that recipe's reagents from the bank into the bags - one
-    stack per reagent - through the core's addon command channel. An addon
+    when a recipe is selected with the window open (and again after every
+    craft) the addon asks the server to move that recipe's reagents from the
+    bank into the bags - one stack per reagent - through the core's addon
+    command channel. Only with the window open: the request moves real items,
+    so making it with nobody at the window is churn for nothing. An addon
     message with the "AzerothCore" prefix and opcode 'i' is run as a command
     from the player and never shown as chat. The server side is
     mod-bankreagents.
@@ -175,6 +177,23 @@ local lastPullSpell, lastPullTime = nil, 0
 local function RequestPull(force)
     local id = TradeSkillFrame and TradeSkillFrame.selectedSkill
     if not id or id == 0 then
+        return
+    end
+
+    -- Only while the window is actually open.
+    --
+    -- This had no such check, and the hook below called it forced, past the
+    -- throttle. Blizzard_TradeSkillUI is load on demand but stays loaded once
+    -- it has been opened, keeping its selectedSkill, and Blizzard calls
+    -- TradeSkillFrame_SetSelection from its own TRADE_SKILL_UPDATE handler -
+    -- which is what learning a recipe fires. So learning a batch of recipes
+    -- sent a burst of pulls for whatever recipe had last been selected, each
+    -- one a server command that physically moved stacks into the bags, with
+    -- the trade skill window closed the whole time.
+    --
+    -- Topping the bags up is only ever worth anything when somebody is at the
+    -- window about to craft. Closed, it is pure inventory churn.
+    if not TradeSkillFrame:IsShown() then
         return
     end
 
@@ -334,7 +353,12 @@ local function Install()
 
     -- exist until it has loaded. Post-hooks run after the original.
     hooksecurefunc("TradeSkillFrame_SetSelection", function()
-        RequestPull(true)
+        -- Throttled, not forced. The throttle is keyed on the spell, so a
+        -- genuinely new selection still pulls at once; what it stops is the
+        -- same recipe being pulled over and over when Blizzard re-selects it
+        -- repeatedly, which is what a batch of trade skill updates does.
+        -- force stays for /bankreagents pull, where a person asked for it.
+        RequestPull(false)
         MarkDirty()
     end)
     -- Also the path scrolling takes, which fires no event of its own: the
