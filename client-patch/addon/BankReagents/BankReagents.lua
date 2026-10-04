@@ -9,9 +9,9 @@
 
     This addon does not change any of that logic - it runs after Blizzard's own
     and corrects three things (and then keeps correcting them: see the ticker
-    near the bottom, which re-applies the numbers every 0.3s while the window
-    is open, because some redraw path was wiping them a moment after they
-    appeared):
+    near the bottom, which re-applies the numbers whenever something could have
+    changed them, with a 0.3s safety pass behind that, because some redraw path
+    was wiping them a moment after they appeared):
 
       * the reagent counts, which now include bank stock
       * the grey-out, removed for reagents the bank can cover
@@ -52,12 +52,26 @@ end
 -- Bags plus bank, via GetItemCount's includeBank argument. Returns nil when
 -- the reagent has no link yet (the item is not cached client side), in which
 -- case Blizzard's own bag-only number is left alone.
+--
+-- Counted by item id and not by link, which is the whole difference between
+-- this being free and this being the reason the client stutters. GetItemCount
+-- given a link has to build and compare a link for every slot it looks at -
+-- and with includeBank that is every bag slot plus all of the bank - where the
+-- id form is a lookup. This runs for eight rows times their reagents on every
+-- refresh, so the link form was doing thousands of link comparisons a second
+-- against a full bank.
 local function CountWithBank(skillIndex, reagentIndex)
     local link = GetTradeSkillReagentItemLink(skillIndex, reagentIndex)
     if not link then
         return nil
     end
-    return GetItemCount(link, true)
+
+    local itemId = tonumber(string.match(link, "item:(%d+)"))
+    if not itemId then
+        return GetItemCount(link, true)     -- not an item link; let the slow path try
+    end
+
+    return GetItemCount(itemId, true)
 end
 
 -- How many of recipe skillIndex the reagents allow once the bank is counted.
@@ -109,19 +123,42 @@ local function RefreshList()
         end
 
         local skillName, skillType, numAvailable = GetTradeSkillInfo(skillIndex)
-        if skillName and skillType ~= "header" then
+        local skillButtonText = _G["TradeSkillSkill" .. i .. "Text"]
+
+        if skillName and skillType == "header" then
+            -- Put the name field back to its full width.
+            --
+            -- These eight buttons are reused as the list scrolls, so the button
+            -- that is a category header now was a recipe a moment ago, and this
+            -- addon narrows the name field on recipe rows to make room for a
+            -- wider count. Blizzard only recomputes that width when it draws a
+            -- recipe, so on a header the narrowing stayed and the category name
+            -- was left clipped - at a wide enough count, clipped to nothing,
+            -- which reads as a section that did not populate.
+            if skillButtonText then
+                skillButtonText:SetWidth(0)
+            end
+        elseif skillName then
             local shown = math.abs(numAvailable or 0)
             local withBank = BankAvailable(skillIndex)
             if withBank and withBank > shown then
-                local skillButtonText = _G["TradeSkillSkill" .. i .. "Text"]
                 local skillButtonCount = _G["TradeSkillSkill" .. i .. "Count"]
                 if skillButtonText and skillButtonCount then
-                    skillButtonCount:SetText("[" .. withBank .. "]")
+                    -- Capped, because the count is what the name field gives up
+                    -- its width to. Bags plus a stocked bank can reach four and
+                    -- five figures on a cheap recipe, and "[12480]" leaves so
+                    -- little room that the recipe's own name disappears.
+                    local label = withBank
+                    if label > 999 then
+                        label = "999+"
+                    end
+
+                    skillButtonCount:SetText("[" .. label .. "]")
                     TradeSkillFrameDummyString:SetText(" " .. skillName)
                     local nameWidth = TradeSkillFrameDummyString:GetWidth()
                     local countWidth = skillButtonCount:GetWidth()
                     if nameWidth + 2 + countWidth > TRADE_SKILL_TEXT_WIDTH then
-                        skillButtonText:SetWidth(TRADE_SKILL_TEXT_WIDTH - 2 - countWidth)
+                        skillButtonText:SetWidth(math.max(1, TRADE_SKILL_TEXT_WIDTH - 2 - countWidth))
                     else
                         skillButtonText:SetWidth(0)
                     end
@@ -233,11 +270,25 @@ end
 -- The hooks below cover the paths that are known to repaint the rows -
 -- TradeSkillFrame_Update, TradeSkillFrame_SetSelection, and the frame's own
 -- OnEvent, which is what blanked the counts for a moment after each craft.
--- This catches anything else. Eight rows and a handful of reagents is nothing
--- to recompute, and a tenth of a second is short enough that nobody sees the
--- gap.
+-- This catches anything else.
+--
+-- It used to recompute everything every tenth of a second whether or not
+-- anything had changed - the comment above it claimed 0.3s while the code said
+-- 0.1 - and with the counts being gathered by item link that was the client
+-- stutter. Now anything that could have changed the numbers marks them dirty
+-- and the next frame picks it up, so a real change is applied faster than
+-- before, and an idle window costs one comparison per frame instead of a
+-- sweep of the bank. The periodic pass stays as the net it was written to be,
+-- at the interval that was always documented.
+local SAFETY_INTERVAL = 0.3
+
 local ticker = CreateFrame("Frame")
 local sinceLast = 0
+local dirty = true
+
+local function MarkDirty()
+    dirty = true
+end
 
 ticker:SetScript("OnUpdate", function(self, elapsed)
     if not TradeSkillFrame or not TradeSkillFrame:IsShown() then
@@ -245,10 +296,12 @@ ticker:SetScript("OnUpdate", function(self, elapsed)
     end
 
     sinceLast = sinceLast + elapsed
-    if sinceLast < 0.1 then
+    if not dirty and sinceLast < SAFETY_INTERVAL then
         return
     end
+
     sinceLast = 0
+    dirty = false
 
     RefreshList()
     RefreshSelection()
@@ -274,8 +327,7 @@ local function Install()
         TradeSkillFrame:HookScript("OnEvent", function(self, event)
             if event == "TRADE_SKILL_UPDATE" or event == "TRADE_SKILL_FILTER_UPDATE" then
                 Debug("OnEvent " .. tostring(event) .. ": re-applying")
-                RefreshList()
-                RefreshSelection()
+                MarkDirty()
             end
         end)
     end
@@ -283,12 +335,12 @@ local function Install()
     -- exist until it has loaded. Post-hooks run after the original.
     hooksecurefunc("TradeSkillFrame_SetSelection", function()
         RequestPull(true)
-        RefreshSelection()
+        MarkDirty()
     end)
-    hooksecurefunc("TradeSkillFrame_Update", function()
-        RefreshList()
-        RefreshSelection()
-    end)
+    -- Also the path scrolling takes, which fires no event of its own: the
+    -- scroll frame calls this, so the eight reused rows are recomputed for
+    -- their new contents.
+    hooksecurefunc("TradeSkillFrame_Update", MarkDirty)
 
     -- Stock moving in or out of the bank has to redraw the counts.
     local watcher = CreateFrame("Frame")
@@ -299,8 +351,7 @@ local function Install()
         if TradeSkillFrame and TradeSkillFrame:IsShown() then
             -- a craft just consumed some of what was pulled: top up again
             RequestPull(false)
-            RefreshList()
-            RefreshSelection()
+            MarkDirty()
         end
     end)
 
