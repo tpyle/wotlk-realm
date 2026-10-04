@@ -1,0 +1,34 @@
+--- a/QueryItem.lua
++++ b/QueryItem.lua
+@@ -13,13 +13,30 @@
+ local function dummy_OnUpdate(self, elapsed)
+     self.elapsed = self.elapsed + elapsed
+     if self.elapsed >= PERIOD then
++        -- The accumulator has to be cleared here, and was not.
++        --
++        -- Without this the comparison above is true on every frame once it has
++        -- been true once, so PERIOD stopped throttling anything and the sweep
++        -- below ran at the frame rate - calling GetItemInfo for every pending
++        -- item, hundreds of times a second while a batch of uncached items
++        -- worked through its QUERY_TIME. The frame has no visibility gate and
++        -- is parented to UIParent, so that went on with every window closed.
++        --
++        -- The handler timeouts are decremented by `since` rather than by
++        -- `elapsed` for the same reason: `elapsed` is one frame, and now that
++        -- this body runs once per PERIOD instead of once per frame, charging a
++        -- single frame against a 180 second timeout would have stretched it to
++        -- about half an hour.
++        local since = self.elapsed
++        self.elapsed = 0.0
++
+         local onRemove = {}
+         for itemId, handlers in pairs(self.queries) do
+             local itemName, itemLink = GetItemInfo(itemId)
+             local i = #handlers
+             while i >= 1 do
+                 local h = handlers[i]
+-                h.time = h.time - elapsed
++                h.time = h.time - since
+                 if itemLink ~= nil or h.time <= 0 then
+                     h(itemId, itemLink ~= nil)
+                     table.remove(handlers, i)
