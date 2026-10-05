@@ -231,6 +231,17 @@ SETTINGS = {
         # its own ceiling - 1000 here would be eleven times normal speed. 100
         # is at most double, which is a mount's worth and plenty for a reward.
         "StatBonus.SpeedLimit": "100",
+        # Earning them: Bazil Thredd (1716) hands every member of the killing
+        # party a Spoils of the Stockade (90001), which starts repeatable quest
+        # 90001 and calls the Quartermaster of Spoils (90001) to take it. What
+        # the turn-in grants comes from statbonus_quest_reward, so the pool is
+        # retuned with an UPDATE rather than a rebuild.
+        "StatBonus.QuestRewards": "1",
+        "StatBonus.Token.Item": "90001",
+        "StatBonus.Token.Count": "1",
+        "StatBonus.Token.Creatures": "1716",
+        "StatBonus.Broker.Entry": "90001",
+        "StatBonus.Broker.DespawnSeconds": "120",
     },
     "modules/mod_talentgrant.conf": {
         "TalentGrant.Enable": "1",
