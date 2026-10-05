@@ -300,6 +300,14 @@ SETTINGS = {
         "OpenSkills.Enable": "1",
         "OpenSkills.Weapons": "1",
         "OpenSkills.Lockpicking": "1",
+        # Plate Mail (293), Mail (413) and Leather (414), so every class can
+        # train every armour proficiency - 25_armor_proficiencies_all_classes.sql
+        # puts those on the class trainers at level 40, and without the masks
+        # open a trainer will not offer the spell (IsSpellFitByClassAndRace)
+        # and _LoadSkills strips the skill at the next login. Cloth is absent
+        # because every class already has it, and shields are left out as an
+        # off-hand rather than a set piece.
+        "OpenSkills.Extra": "293,413,414",
     },
     "modules/mod_extraglyphs.conf": {
         # Glyph effects beyond the six sockets, kept per character and spec
