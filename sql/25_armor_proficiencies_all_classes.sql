@@ -38,9 +38,30 @@
 --
 -- Idempotent: the rows are deleted and reinserted. Applying it needs no
 -- restart, only ".reload trainer".
+--
+-- THE DELETE NAMES EXACT PAIRS, and that is a correction rather than a style
+-- choice. It used to read
+--
+--   WHERE TrainerId IN (...) AND SpellId IN (...)
+--
+-- which is the cross product, and the cross product contained two rows this
+-- file does not own: the stock (7, 8737) and (14, 8737), hunters and shamans
+-- training Mail. They were deleted and not reinserted, because those classes
+-- already have mail in their class mask and so are skipped by the computation
+-- below. The symptom was a level 80 hunter unable to train Mail at all, which
+-- is a thing the realm used to be able to do.
+--
+-- The two rows are restored at the foot of the file, with the money costs the
+-- base data gives them (data/sql/base/db_world/trainer_spell.sql), rather than
+-- from anybody's memory of a SELECT.
 -- ---------------------------------------------------------------------------
 
-DELETE FROM `trainer_spell` WHERE `TrainerId` IN (7, 9, 11, 13, 14, 16, 31, 33) AND `SpellId` IN (750, 8737, 9077, 9116);
+DELETE FROM `trainer_spell` WHERE (`TrainerId`, `SpellId`) IN (
+    (7, 750), (7, 9116), (9, 750), (9, 8737), (9, 9116), (11, 750),
+    (11, 8737), (11, 9077), (11, 9116), (13, 9116), (14, 750), (16, 750),
+    (16, 8737), (16, 9077), (16, 9116), (31, 750), (31, 8737), (31, 9077),
+    (31, 9116), (33, 750), (33, 8737), (33, 9116)
+);
 
 INSERT INTO `trainer_spell` (`TrainerId`, `SpellId`, `MoneyCost`, `ReqSkillLine`, `ReqSkillRank`, `ReqAbility1`, `ReqAbility2`, `ReqAbility3`, `ReqLevel`) VALUES
 (7, 750, 20000, 0, 0, 0, 0, 0, 40),   -- Plate Mail for the hunter trainer
@@ -65,3 +86,10 @@ INSERT INTO `trainer_spell` (`TrainerId`, `SpellId`, `MoneyCost`, `ReqSkillLine`
 (33, 750, 20000, 0, 0, 0, 0, 0, 40),   -- Plate Mail for the druid trainer
 (33, 8737, 18000, 0, 0, 0, 0, 0, 40),   -- Mail for the druid trainer
 (33, 9116, 10000, 0, 0, 0, 0, 0, 40);   -- Shield for the druid trainer
+
+-- Restoring what an earlier version of this file destroyed, exactly as
+-- data/sql/base/db_world/trainer_spell.sql has them. IGNORE so that running
+-- this on a database where they are still intact does nothing.
+INSERT IGNORE INTO `trainer_spell` (`TrainerId`, `SpellId`, `MoneyCost`, `ReqSkillLine`, `ReqSkillRank`, `ReqAbility1`, `ReqAbility2`, `ReqAbility3`, `ReqLevel`, `VerifiedBuild`) VALUES
+(7, 8737, 18000, 0, 0, 0, 0, 0, 40, 0),    -- stock: the hunter trains Mail
+(14, 8737, 12000, 0, 0, 0, 0, 0, 40, 0);   -- stock: the shaman trains Mail
