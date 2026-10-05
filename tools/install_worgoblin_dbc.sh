@@ -19,8 +19,12 @@
 #   4. packs our client DBCs as patch-Z.MPQ. The open skill masks are NOT in
 #      here - tools/gen_openskills_client_dbc.py packs those as patch-Y.MPQ of
 #      its own, because that file is 2 KB against this one's 32 MB and changes
-#      whenever OpenSkills.Extra does. Both sort after patch-A, which is what
-#      matters: the module ships its own copies of the DBCs we patch. It used to be patch-4.MPQ;
+#      whenever OpenSkills.Extra does. gen_lfg_dbc.py does the same with
+#      LFGDungeons.dbc as patch-X.MPQ. What belongs in here is what has to beat
+#      the HD patches - the module ships its own copies of those DBCs, and the
+#      HD patches load after patch-A - plus the goblin art, which is 82 MB of
+#      the 88 MB and never changes. Nothing small should share an archive with
+#      it. It used to be patch-4.MPQ;
 #      the client loads patch-?.MPQ matches in name order with later ones
 #      overriding, digits before letters, so patch-4 would lose to the
 #      module's patch-A.MPQ - and both carry CharBaseInfo.dbc. Z wins.

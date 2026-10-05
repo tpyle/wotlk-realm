@@ -65,21 +65,37 @@ The first run keeps the stock file as LFGDungeons.dbc.orig and every run
 patches from that baseline, so re-running is idempotent and the original is
 always recoverable.
 
-After this, repack the client patch:
-
-    tools/install_worgoblin_dbc.sh --client-only
-
-and restart the world server, which reads the DBCs once at startup.
+It packs its own archive, client-patch/patch-X.MPQ, so the only things left are
+copying that into the client's Data folder and restarting the world server,
+which reads its own copy of the DBCs once at startup.
 """
 
 import shutil
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path("/root/classic")
 SERVER_DBC = ROOT / "run/data/dbc/LFGDungeons.dbc"
-STAGING_DBC = ROOT / "client-patch/staging/DBFilesClient/LFGDungeons.dbc"
+# Its own staging directory and its own archive, rather than riding along in
+# patch-Z.
+#
+# patch-Z is 32 MB and almost all of that is the goblin model folder and the
+# DBCs merged against the HD patches - things that have to beat patch-H and
+# then never change. This file has nothing to do with any of that, is 42 KB,
+# and changes whenever the dungeon finder is tweaked, so it was forcing a 32 MB
+# recopy for a four byte edit.
+#
+# Nothing else ships LFGDungeons.dbc - not mod-worgoblin's patch-A, not the HD
+# patches - so unlike the skill masks there is no name ordering to satisfy. X
+# simply keeps it with the rest of ours, after the HD patches and before Y
+# and Z.
+STAGING_DIR = ROOT / "client-patch/staging-lfg"
+STAGING_DBC = STAGING_DIR / "DBFilesClient/LFGDungeons.dbc"
+SHARED_STAGING = ROOT / "client-patch/staging/DBFilesClient/LFGDungeons.dbc"
+ARCHIVE = ROOT / "client-patch/patch-X.MPQ"
+PACKER = ROOT / "tools/mpq_pack"
 
 # Field indices from the core's LFGDungeonEntry (src/server/shared/DataStores/
 # DBCStructure.h). Name occupies 1-17, which is why these start so late.
@@ -257,11 +273,28 @@ def main():
     print(f"{SERVER_DBC}: raised MaxLevel to {RAISE_TO} on {len(changed)} of {records} rows, "
           f"appended {len(added)}")
 
-    if STAGING_DBC.parent.is_dir():
-        STAGING_DBC.write_bytes(out)
-        print(f"{STAGING_DBC}: same file staged for patch-Z.MPQ")
-    else:
-        print(f"note: {STAGING_DBC.parent} is missing, so nothing was staged for the client")
+    STAGING_DBC.parent.mkdir(parents=True, exist_ok=True)
+    STAGING_DBC.write_bytes(out)
+    print(f"{STAGING_DBC}: the same file, staged for patch-X.MPQ")
+
+    # patch-Z must not carry it as well. Nothing would break if it did, since Z
+    # wins on name order and holds the same bytes, but then editing this file
+    # would silently need both archives repacked to take effect.
+    if SHARED_STAGING.exists():
+        SHARED_STAGING.unlink()
+        print(f"{SHARED_STAGING}: removed, so patch-Z stops shipping it")
+        print("  patch-Z needs one more repack to drop it: tools/install_worgoblin_dbc.sh --client-only")
+
+    if not PACKER.exists():
+        sys.exit(f"{PACKER} is missing; build it before packing")
+
+    result = subprocess.run([str(PACKER), str(ARCHIVE), str(STAGING_DIR)],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.exit(f"packing {ARCHIVE} failed: {result.stderr.strip()}")
+
+    print(result.stdout.strip().splitlines()[-1] if result.stdout.strip() else f"wrote {ARCHIVE}")
+    print(f"copy {ARCHIVE.name} into the client's Data folder, and restart the world server")
 
     counts = {LFG_TYPE_DUNGEON: 0, LFG_TYPE_HEROIC: 0, LFG_TYPE_RANDOM: 0}
     for _, _, _, kind in changed:

@@ -70,7 +70,7 @@ the modules they talk to, so that there is one copy of each.
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
 | `tools/` | The DBC generators, the MPQ packer, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races), `patch-Y.MPQ` (the open skill masks) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, TransmogAzerothCore) |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |
@@ -114,6 +114,19 @@ The client at `/root/chromie/ChromieCraft_3.3.5a` is already set up:
   opened show on the character sheet. Its own archive rather than part of
   patch-Z because it is 2 KB against 32 MB and changes every time
   `OpenSkills.Extra` does, so it can be re-sent on its own.
+* `Data/patch-X.MPQ` - the Dungeon Finder: the raised level caps and the two
+  extra random options. Split out for the same reason, at 6 KB.
+
+The split is worth understanding, because patch-Z is the one that looks
+mysterious. It exists to **beat the HD patches**: the client's `Data` folder
+carries Leeviathan's Patch-F/G/H, which ship the same DBCs mod-worgoblin does
+and load after `patch-A`, so the module's rows vanish - no
+`CreatureDisplayInfo` row for the Worgen display ids, which is a null
+dereference when the race is clicked, and two competing sets of goblin
+`CharSections`, which scrambles their faces. Those eight files are merged and
+re-shipped from an archive that loads last, along with the goblin model folder
+for the same reason. That art is 82 MB of the 88 MB and never changes, which is
+why nothing small should live in there with it.
 * `Data/enUS/realmlist.wtf` - now reads `set realmlist 127.0.0.1`. The original
   (which pointed at chromiecraft.com) is kept next to it as
   `realmlist.wtf.orig`.
@@ -150,8 +163,8 @@ Other players put this in their own `Data/enUS/realmlist.wtf`:
 set realmlist 5.161.99.58
 ```
 
-They also need `patch-Z.MPQ`, `patch-Y.MPQ` and `patch-A.MPQ` from
-`client-patch/` in their `Data/` folder (and the signature-check patch to
+They also need `patch-Z.MPQ`, `patch-Y.MPQ`, `patch-X.MPQ` and `patch-A.MPQ`
+from `client-patch/` in their `Data/` folder (and the signature-check patch to
 `Wow.exe`, see the Worgen and Goblin section), or the character creation screen
 will not offer the extra class/race combinations.
 
