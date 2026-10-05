@@ -28,21 +28,38 @@ The skill list is read from the module itself - WeaponSkills() and LOCKPICKING
 in src/SkillIdList.h - and gated on the live configuration, so this cannot
 drift from what the module actually opens.
 
-After running it, repack the client patch and recopy it:
-
-    tools/install_worgoblin_dbc.sh --client-only
-
-No server restart: nothing the server reads has changed.
+It packs its own archive, client-patch/patch-Y.MPQ, so there is nothing to run
+afterwards but the copy into the client's Data folder. No server restart:
+nothing the server reads has changed.
 """
 
 import re
 import struct
+import subprocess
 import sys
 from pathlib import Path
 
 ROOT = Path("/root/classic")
 SOURCE = ROOT / "run/data/dbc/SkillRaceClassInfo.dbc"
-STAGING = ROOT / "client-patch/staging/DBFilesClient/SkillRaceClassInfo.dbc"
+# Its own staging directory and its own archive, rather than riding along in
+# patch-Z.
+#
+# patch-Z is 32MB, almost all of it the goblin model folder and the merged HD
+# DBCs, and it has to be recopied in full every time this one small file
+# changes - which is every time OpenSkills.Extra changes. This is a few
+# kilobytes instead.
+#
+# The name has to sort after patch-A, because mod-worgoblin ships its own
+# SkillRaceClassInfo.dbc there and the client loads patch-?.MPQ in name order
+# with later ones winning. Y is after A, F, G and H, and before Z - which is
+# fine as long as Z does not also carry this file, or Z would win and the split
+# would quietly do nothing. The pack step below is what keeps that honest: it
+# removes the file from patch-Z's staging if it is there.
+STAGING_DIR = ROOT / "client-patch/staging-skills"
+STAGING = STAGING_DIR / "DBFilesClient/SkillRaceClassInfo.dbc"
+SHARED_STAGING = ROOT / "client-patch/staging/DBFilesClient/SkillRaceClassInfo.dbc"
+ARCHIVE = ROOT / "client-patch/patch-Y.MPQ"
+PACKER = ROOT / "tools/mpq_pack"
 SKILL_ID_LIST = ROOT / "server/modules/mod-openskills/src/SkillIdList.h"
 CONF = ROOT / "run/etc/modules/mod_openskills.conf"
 
@@ -123,14 +140,29 @@ def main():
         struct.pack_into("<I", data, base + I_CLASS_MASK * 4, 0)
         opened += 1
 
-    if not STAGING.parent.is_dir():
-        sys.exit(f"{STAGING.parent} is missing; run tools/install_worgoblin_dbc.sh first")
-
+    STAGING.parent.mkdir(parents=True, exist_ok=True)
     STAGING.write_bytes(data)
 
     print(f"{STAGING}: opened {opened} row(s), {already} already open, of {records}")
     print(f"{SOURCE}: left untouched - mod-openskills owns the server side in memory")
-    print("now: tools/install_worgoblin_dbc.sh --client-only, then recopy patch-Z.MPQ")
+
+    # patch-Z must not carry this file as well, or it would win on name order
+    # and this archive would be decorative.
+    if SHARED_STAGING.exists():
+        SHARED_STAGING.unlink()
+        print(f"{SHARED_STAGING}: removed, so patch-Z stops shipping it")
+        print("  patch-Z needs one more repack to drop it: tools/install_worgoblin_dbc.sh --client-only")
+
+    if not PACKER.exists():
+        sys.exit(f"{PACKER} is missing; build it before packing")
+
+    result = subprocess.run([str(PACKER), str(ARCHIVE), str(STAGING_DIR)],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.exit(f"packing {ARCHIVE} failed: {result.stderr.strip()}")
+
+    print(result.stdout.strip().splitlines()[-1] if result.stdout.strip() else f"wrote {ARCHIVE}")
+    print(f"copy {ARCHIVE.name} into the client's Data folder")
 
 
 if __name__ == "__main__":

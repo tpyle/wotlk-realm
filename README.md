@@ -70,7 +70,7 @@ the modules they talk to, so that there is one copy of each.
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
 | `tools/` | The DBC generators, the MPQ packer, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, TransmogAzerothCore) |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races), `patch-Y.MPQ` (the open skill masks) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |
@@ -110,6 +110,10 @@ The client at `/root/chromie/ChromieCraft_3.3.5a` is already set up:
 
 * `Data/patch-Z.MPQ` - the generated patch that unlocks every class on every
   race on the character creation screen.
+* `Data/patch-Y.MPQ` - the open skill masks, so skills mod-openskills has
+  opened show on the character sheet. Its own archive rather than part of
+  patch-Z because it is 2 KB against 32 MB and changes every time
+  `OpenSkills.Extra` does, so it can be re-sent on its own.
 * `Data/enUS/realmlist.wtf` - now reads `set realmlist 127.0.0.1`. The original
   (which pointed at chromiecraft.com) is kept next to it as
   `realmlist.wtf.orig`.
@@ -146,10 +150,17 @@ Other players put this in their own `Data/enUS/realmlist.wtf`:
 set realmlist 5.161.99.58
 ```
 
-They also need `patch-Z.MPQ` and `patch-A.MPQ` from `client-patch/` in their
-`Data/` folder (and the signature-check patch to `Wow.exe`, see the Worgen and
-Goblin section), or
-the character creation screen will not offer the extra class/race combinations.
+They also need `patch-Z.MPQ`, `patch-Y.MPQ` and `patch-A.MPQ` from
+`client-patch/` in their `Data/` folder (and the signature-check patch to
+`Wow.exe`, see the Worgen and Goblin section), or the character creation screen
+will not offer the extra class/race combinations.
+
+`patch-Y.MPQ` is the one that is easy to forget, and the symptom is specific:
+everything works but the skills do not appear in the skills pane. A warlock can
+train plate and wear it with no `patch-Y`; it simply will not be listed. The
+load order matters too - the client reads `patch-?.MPQ` in name order with
+later ones winning, and `patch-A` carries its own `SkillRaceClassInfo.dbc`, so
+ours has to sort after it. Y does; a `patch-4` would not.
 
 `tools/check_login.py` logs in the way a real client does (SRP6 handshake plus
 realm list request) and prints what the client is told, which is the quickest

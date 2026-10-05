@@ -16,7 +16,11 @@
 #      be file patches here as well; they are mod-openskills now, which opens
 #      those masks in memory at startup and therefore needs nothing doing
 #      when the DBCs are replaced.)
-#   4. packs our two client DBCs as patch-Z.MPQ. It used to be patch-4.MPQ;
+#   4. packs our client DBCs as patch-Z.MPQ. The open skill masks are NOT in
+#      here - tools/gen_openskills_client_dbc.py packs those as patch-Y.MPQ of
+#      its own, because that file is 2 KB against this one's 32 MB and changes
+#      whenever OpenSkills.Extra does. Both sort after patch-A, which is what
+#      matters: the module ships its own copies of the DBCs we patch. It used to be patch-4.MPQ;
 #      the client loads patch-?.MPQ matches in name order with later ones
 #      overriding, digits before letters, so patch-4 would lose to the
 #      module's patch-A.MPQ - and both carry CharBaseInfo.dbc. Z wins.
