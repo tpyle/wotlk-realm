@@ -3,11 +3,18 @@
 Make the client agree with mod-openskills about who may hold a skill.
 
 mod-openskills opens two DBC columns so that any class can hold a weapon
-proficiency or Lockpicking:
+proficiency, an armour proficiency or Lockpicking:
 
     SkillLineAbility.ClassMask      whether a trainer will teach the spell
     SkillRaceClassInfo.ClassMask    whether learning it grants the skill, and
                                     whether a character keeps it at login
+
+BOTH are patched here, and the second one was the whole lesson. The first cut
+of this script did SkillRaceClassInfo only, on the reasoning that it is what
+decides whether a class may hold a skill - and it was not enough. A level 80
+hunter at a hunter trainer saw no Plate Mail, because the client checks its own
+SkillLineAbility.ClassMask before listing a trainer spell, and that still said
+0x23: warrior, paladin, death knight.
 
 It opens them in memory at startup and deliberately touches no file, which is
 right for the server - a skill dropped from the configuration closes again on
@@ -40,7 +47,19 @@ import sys
 from pathlib import Path
 
 ROOT = Path("/root/classic")
+# (source, staged name, the field to open, what to open it to)
+#
+# SkillRaceClassInfo takes 0xFFFFFFFF rather than 0, which is what
+# mod-openskills writes server side. Both read as "every class" to the core,
+# whose test is `ClassMask && !(ClassMask & bit)` - a zero short-circuits - but
+# only the full mask is also right under the other convention, and what the
+# client does with these columns is not ours to read. Matching the server
+# exactly costs nothing.
+#
+# SkillLineAbility takes 0, because there 0 is unambiguously "no restriction":
+# most rows in the file carry it, including every mount.
 SOURCE = ROOT / "run/data/dbc/SkillRaceClassInfo.dbc"
+SOURCE_ABILITY = ROOT / "run/data/dbc/SkillLineAbility.dbc"
 # Its own staging directory and its own archive, rather than riding along in
 # patch-Z.
 #
@@ -57,6 +76,7 @@ SOURCE = ROOT / "run/data/dbc/SkillRaceClassInfo.dbc"
 # removes the file from patch-Z's staging if it is there.
 STAGING_DIR = ROOT / "client-patch/staging-skills"
 STAGING = STAGING_DIR / "DBFilesClient/SkillRaceClassInfo.dbc"
+STAGING_ABILITY = STAGING_DIR / "DBFilesClient/SkillLineAbility.dbc"
 SHARED_STAGING = ROOT / "client-patch/staging/DBFilesClient/SkillRaceClassInfo.dbc"
 ARCHIVE = ROOT / "client-patch/patch-Y.MPQ"
 PACKER = ROOT / "tools/mpq_pack"
@@ -65,6 +85,12 @@ CONF = ROOT / "run/etc/modules/mod_openskills.conf"
 
 # Field indices from the core's SkillRaceClassInfoEntry (DBCStructure.h).
 I_SKILL_ID, I_CLASS_MASK = 1, 3
+
+# And from SkillLineAbilityEntry: SkillLine at 1, ClassMask at 4.
+I_ABILITY_SKILL_LINE, I_ABILITY_CLASS_MASK = 1, 4
+
+ALL_CLASSES = 0xFFFFFFFF
+UNRESTRICTED = 0
 
 
 def module_skills():
@@ -106,52 +132,66 @@ def module_skills():
     return seen
 
 
-def main():
-    skills = module_skills()
-    print(f"{len(skills)} skill(s) configured open: {', '.join(map(str, skills))}")
-
-    data = bytearray(SOURCE.read_bytes())
+def open_masks(source, staged, skills, skill_field, mask_field, open_to):
+    """Rewrite one DBC with the configured skills' ClassMask opened."""
+    data = bytearray(source.read_bytes())
     magic, records, fields, record_size, _ = struct.unpack_from("<4sIIII", data, 0)
 
     if magic != b"WDBC":
-        sys.exit(f"{SOURCE}: not a WDBC file")
+        sys.exit(f"{source}: not a WDBC file")
 
     if fields * 4 != record_size:
-        sys.exit(f"{SOURCE}: {fields} fields do not fill a {record_size} byte record")
+        sys.exit(f"{source}: {fields} fields do not fill a {record_size} byte record")
 
-    if I_CLASS_MASK >= fields:
-        sys.exit(f"{SOURCE}: only {fields} fields, expected ClassMask at {I_CLASS_MASK}")
+    if max(skill_field, mask_field) >= fields:
+        sys.exit(f"{source}: only {fields} fields, expected the mask at {mask_field}")
 
     opened = 0
     already = 0
 
     for record in range(records):
         base = 20 + record * record_size
-        skill_id = struct.unpack_from("<I", data, base + I_SKILL_ID * 4)[0]
+        skill_id = struct.unpack_from("<I", data, base + skill_field * 4)[0]
 
         if skill_id not in skills:
             continue
 
-        class_mask = struct.unpack_from("<I", data, base + I_CLASS_MASK * 4)[0]
-        if class_mask == 0:
+        if struct.unpack_from("<I", data, base + mask_field * 4)[0] == open_to:
             already += 1
             continue
 
-        struct.pack_into("<I", data, base + I_CLASS_MASK * 4, 0)
+        struct.pack_into("<I", data, base + mask_field * 4, open_to)
         opened += 1
 
-    STAGING.parent.mkdir(parents=True, exist_ok=True)
-    STAGING.write_bytes(data)
+    staged.parent.mkdir(parents=True, exist_ok=True)
+    staged.write_bytes(data)
 
-    print(f"{STAGING}: opened {opened} row(s), {already} already open, of {records}")
-    print(f"{SOURCE}: left untouched - mod-openskills owns the server side in memory")
+    print(f"{staged.name}: opened {opened} row(s), {already} already open, of {records}")
+    return opened + already
 
-    # patch-Z must not carry this file as well, or it would win on name order
-    # and this archive would be decorative.
-    if SHARED_STAGING.exists():
-        SHARED_STAGING.unlink()
-        print(f"{SHARED_STAGING}: removed, so patch-Z stops shipping it")
-        print("  patch-Z needs one more repack to drop it: tools/install_worgoblin_dbc.sh --client-only")
+
+def main():
+    skills = module_skills()
+    print(f"{len(skills)} skill(s) configured open: {', '.join(map(str, skills))}")
+
+    touched = 0
+    touched += open_masks(SOURCE, STAGING, skills, I_SKILL_ID, I_CLASS_MASK, ALL_CLASSES)
+    touched += open_masks(SOURCE_ABILITY, STAGING_ABILITY, skills,
+                          I_ABILITY_SKILL_LINE, I_ABILITY_CLASS_MASK, UNRESTRICTED)
+
+    if not touched:
+        sys.exit("no row matched any configured skill - check the ids")
+
+    print(f"{SOURCE.parent}: left untouched - mod-openskills owns the server side in memory")
+
+    # patch-Z must not carry these as well, or it would win on name order and
+    # this archive would be decorative.
+    for stale in (ROOT / "client-patch/staging/DBFilesClient/SkillRaceClassInfo.dbc",
+                  ROOT / "client-patch/staging/DBFilesClient/SkillLineAbility.dbc"):
+        if stale.exists():
+            stale.unlink()
+            print(f"{stale}: removed, so patch-Z stops shipping it")
+            print("  patch-Z needs one more repack to drop it: tools/install_worgoblin_dbc.sh --client-only")
 
     if not PACKER.exists():
         sys.exit(f"{PACKER} is missing; build it before packing")
