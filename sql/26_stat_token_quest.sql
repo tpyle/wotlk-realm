@@ -252,7 +252,16 @@ INSERT INTO `quest_template` SELECT * FROM `tmp_quest`;
 DROP TEMPORARY TABLE `tmp_quest`;
 
 DELETE FROM `quest_template_addon` WHERE `ID` = @QUEST;
-INSERT INTO `quest_template_addon` (`ID`, `SpecialFlags`) VALUES (@QUEST, 1);   -- 1 = repeatable
+-- The count for StartItem belongs here, in the addon table, and not next to
+-- the StartItem it counts. Leaving it 0 is not silently broken - the server
+-- corrects it to 1 and logs "need fix in DB" - but stock 12798 sets it, so
+-- this does too.
+--
+-- The column is ProvidedItemCount. The server's complaint calls it
+-- StartItemCount, which is the name of the Quest member it loads into and not
+-- of any column in the schema, so the error message cannot be grepped for.
+INSERT INTO `quest_template_addon` (`ID`, `SpecialFlags`, `ProvidedItemCount`)
+VALUES (@QUEST, 1, 1);   -- SpecialFlags 1 = repeatable
 
 DELETE FROM `creature_questender` WHERE `quest` = @QUEST;
 INSERT INTO `creature_questender` (`id`, `quest`) VALUES (@BROKER, @QUEST);
