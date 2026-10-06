@@ -225,11 +225,14 @@ INSERT INTO `creature_questender` (`id`, `quest`) VALUES (@BROKER, @QUEST);
 -- reports: a quest with no quest_request_items / quest_offer_reward row just
 -- shows an empty dialogue box at turn-in.
 --
--- Neither one can name the stat. RequestItemsText is sent when the Echo is
--- opened and RewardText when the reward page is shown, and both happen before
--- the module rolls the pool in OnPlayerCompleteQuest - there is nothing to
--- name yet. So the text gestures at the trade and the Echo whispers the
--- result afterwards.
+-- RewardText names the stat through a %stat token, which mod-statbonus
+-- substitutes in OnPlayerQuestOfferRewardText while the packet is being built
+-- - which is also where it rolls the pool, because this packet is the last
+-- thing sent before the reward is handed over. Closing the box and reopening
+-- it shows the same answer; the roll is only spent at turn-in.
+--
+-- RequestItemsText comes one box earlier, before anything has been rolled, so
+-- that one can only gesture at the trade.
 DELETE FROM `quest_request_items` WHERE `ID` = @QUEST;
 INSERT INTO `quest_request_items` (`ID`, `EmoteOnComplete`, `EmoteOnIncomplete`, `CompletionText`, `VerifiedBuild`)
 VALUES (@QUEST, 1, 0,
@@ -241,7 +244,7 @@ INSERT INTO `quest_offer_reward`
     (`ID`, `Emote1`, `Emote2`, `Emote3`, `Emote4`,
      `EmoteDelay1`, `EmoteDelay2`, `EmoteDelay3`, `EmoteDelay4`, `RewardText`, `VerifiedBuild`)
 VALUES (@QUEST, 4, 1, 0, 0, 0, 2000, 0, 0,
-    'Hold still.$B$BThere. Something of the world that made it has gone into you, and it will not wash out. You will feel where it landed soon enough.$B$BBring me another when you find one. There is a great deal of world, and it is all still happening.',
+    'Hold still.$B$BThere. It was carrying %stat, and that has gone into you now. It will not wash out.$B$BBring me another when you find one. There is a great deal of world, and it is all still happening.',
     0);
 
 -- --- what it can grant ----------------------------------------------------
