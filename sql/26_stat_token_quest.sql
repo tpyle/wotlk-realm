@@ -1,18 +1,25 @@
 -- ---------------------------------------------------------------------------
--- Earning a stat point: Bazil Thredd, a token, and the broker who takes it
+-- Earning a stat point: a Fragment of Power and the Echo who takes it
 --
--- Bazil Thredd (1716, the last boss of the Stormwind Stockade) hands every
--- member of the killing party a token. Using the token starts a repeatable
--- quest and calls a broker to the player, who takes it and grants one bonus
--- rolled from a pool.
+-- A boss hands every member of the killing party a Fragment of Power. Using
+-- the fragment starts a repeatable quest and calls the Echo of Azeroth, who
+-- takes it and grants one bonus rolled from a pool. The fragment can call the
+-- Echo again afterwards, on a cooldown, so missing her the first time costs
+-- nothing.
+--
+-- Deliberately says nothing about where the fragment comes from. Bazil Thredd
+-- (1716) is the only source today and that lives in the module's
+-- configuration, not in this text, so another boss can be added without the
+-- quest starting to lie.
 --
 -- Three of the four pieces are here as data. The fourth - who gets the token,
 -- when the broker appears, and what the roll lands on - is mod-statbonus,
 -- reading statbonus_quest_reward and a handful of config options.
 --
---   item     90001  Spoils of the Stockade
---   quest    90001  A Share of the Spoils       (repeatable)
---   creature 90001  Quartermaster of Spoils     (the broker)
+--   item     90001  Fragment of Power        (starts the quest, and calls the Echo)
+--   quest    90001  A Fragment of Power      (repeatable)
+--   creature 90001  Echo of Azeroth          (takes it)
+--   spell   900000  Call the Echo            (added through spell_dbc, see below)
 --
 -- WHY THE TOKEN IS NOT LOOT. The ask was "everyone in the party, every time",
 -- and creature_loot_template cannot do that. A quest item only drops for
@@ -20,13 +27,28 @@
 -- looter. So the module hands it out on the kill instead, to every group
 -- member in the same map, and mails it to anybody whose bags are full.
 --
--- WHY THE BROKER IS SUMMONED ON ACCEPT, NOT ON USE. Archmage Vargoth's Staff
--- (28455) is the shipped precedent for this - a quest item whose use-spell
--- summons the NPC who takes it - but that needs a spell, and a new spell needs
--- a row in Spell.dbc and therefore a client patch. item_template.StartQuest
--- makes the token start the quest by itself, the way the Darkmoon decks do,
--- and the module summons the broker when the quest is accepted. One click,
--- same result, nothing for the client to learn.
+-- THE SUMMON, AND WHY IT NEEDS NO CLIENT PATCH. Quest 12798 and item 42922 are
+-- the pattern being copied: a quest item whose on-use spell summons the NPC
+-- who takes it, with no charges consumed and a cooldown, so it can be used
+-- again. The Darkmoon version does it with two items - 37164 starts the quest
+-- and is consumed, 12798 hands over 42922 on accept, and 42922 is the one with
+-- the spell - because an item cannot obviously do both jobs at once.
+--
+-- Here it is one item that does both: StartQuest for the first click, and the
+-- spell for every click after, which works because accepting a quest from an
+-- item spares the item when it is also one of the quest's required items and
+-- its MaxCount is non-zero. If the client turns out to refuse the spell while
+-- the quest is already taken, the module still summons her on accept, so the
+-- quest is always completable.
+--
+-- The spell is new, and new spells do NOT need a Spell.dbc edit here:
+-- DBCStores loads "Spell.dbc" and then overlays the world table spell_dbc on
+-- top of it, and 4492 of that table's rows are already ids that Spell.dbc has
+-- never heard of. So the spell is a row of SQL. It is a copy of 56894, the
+-- Darkmoon Fortune Teller summons, with the summoned creature changed - field
+-- 110 of the DBC, EffectMiscValue_1 - and its own name. The table's columns
+-- are in DBC field order, all 234 of them, which is what makes a copy like
+-- this readable rather than a guess.
 --
 -- Rows are cloned from existing ones and overridden, rather than written out
 -- column by column, so this cannot go stale when a column is added: the deck
@@ -41,16 +63,45 @@
 SET @ITEM   := 90001;
 SET @QUEST  := 90001;
 SET @BROKER := 90001;
-SET @BAZIL  := 1716;
+SET @SPELL  := 900000;
 
--- --- the token ------------------------------------------------------------
+-- --- the summon spell -----------------------------------------------------
+--
+-- Only the fields spell 56894 actually sets, read off its DBC row and mapped
+-- to these columns by ordinal. Everything else defaults to 0, which is what
+-- the DBC holds for them too.
+DELETE FROM `spell_dbc` WHERE `ID` = @SPELL;
+INSERT INTO `spell_dbc`
+    (`ID`, `CastingTimeIndex`, `InterruptFlags`, `ProcChance`, `DurationIndex`, `RangeIndex`,
+     `EquippedItemClass`, `Effect_1`, `ImplicitTargetA_1`, `EffectRadiusIndex_1`,
+     `EffectMiscValue_1`, `EffectMiscValueB_1`, `SpellVisualID_1`, `SpellIconID`,
+     `EffectChainAmplitude_1`, `EffectChainAmplitude_2`, `EffectChainAmplitude_3`, `SchoolMask`,
+     `Name_Lang_enUS`, `Name_Lang_Mask`, `Description_Lang_enUS`, `Description_Lang_Mask`)
+VALUES
+    (@SPELL, 4, 9, 101, 25, 1,
+     -1, 28, 47, 7,
+     @BROKER, 64, 9226, 3155,
+     1065353216, 1065353216, 1065353216, 1,
+     'Call the Echo', 16712190,
+     'Reach through to whatever is listening, and ask it to take shape.', 16712190);
+
+-- --- the fragment ---------------------------------------------------------
 DELETE FROM `item_template` WHERE `entry` = @ITEM;
 CREATE TEMPORARY TABLE `tmp_item` AS SELECT * FROM `item_template` WHERE `entry` = 44326;
 UPDATE `tmp_item` SET
     `entry`       = @ITEM,
-    `name`        = 'Spoils of the Stockade',
-    `description` = 'The Stockade''s quartermaster will know what to make of this.',
+    `name`        = 'Fragment of Power',
+    `description` = 'Something is listening on the other side of it.',
     `startquest`  = @QUEST,
+    -- Both jobs on one item: StartQuest for the first click, and this for
+    -- every click after it. No charges, so using it never spends it, and a
+    -- minute's cooldown so the Echo cannot be stacked up.
+    `spellid_1`      = @SPELL,
+    `spelltrigger_1` = 0,
+    `spellcharges_1` = 0,
+    `spellcooldown_1` = 60000,
+    `spellcategory_1` = 0,
+    `spellcategorycooldown_1` = -1,
     `stackable`   = 20,
     -- MaxCount must be above zero, and this is not a style choice.
     --
@@ -81,8 +132,8 @@ DELETE FROM `creature_template` WHERE `entry` = @BROKER;
 CREATE TEMPORARY TABLE `tmp_creature` AS SELECT * FROM `creature_template` WHERE `entry` = 14847;
 UPDATE `tmp_creature` SET
     `entry`    = @BROKER,
-    `name`     = 'Quartermaster of Spoils',
-    `subname`  = 'Keeper of Small Advantages',
+    `name`     = 'Echo of Azeroth',
+    `subname`  = 'A Shape That Remembers',
     `npcflag`  = 2,        -- questgiver only; nothing to buy or train
     -- Also inherited: Paleo's gossip menu 6202, which the server complains
     -- about on a creature with no gossip flag - and which would have offered
@@ -96,17 +147,27 @@ INSERT INTO `creature_template` SELECT * FROM `tmp_creature`;
 DROP TEMPORARY TABLE `tmp_creature`;
 
 DELETE FROM `creature_template_model` WHERE `CreatureID` = @BROKER;
+-- 19661 is the Image of Commander Ameer: an ethereal, and already an *image* of
+-- one rather than the thing itself, which is exactly what is being summoned here.
 INSERT INTO `creature_template_model` (`CreatureID`, `Idx`, `CreatureDisplayID`, `DisplayScale`, `Probability`, `VerifiedBuild`)
-VALUES (@BROKER, 0, 14883, 1, 1, 0);
+VALUES (@BROKER, 0, 19661, 1, 1, 0);
+
+DELETE FROM `creature_template_addon` WHERE `entry` = @BROKER;
+-- 28126 'Spirit Particles (purple)' is a cosmetic-only aura (23 stock creatures
+-- carry it the same way); it hangs a drift of motes around the model so the Echo
+-- reads as something half-here instead of just another Consortium broker.
+INSERT INTO `creature_template_addon`
+    (`entry`, `path_id`, `mount`, `bytes1`, `bytes2`, `emote`, `visibilityDistanceType`, `auras`)
+VALUES (@BROKER, 0, 0, 0, 1, 0, 0, '28126');
 
 -- --- the quest ------------------------------------------------------------
 DELETE FROM `quest_template` WHERE `ID` = @QUEST;
 CREATE TEMPORARY TABLE `tmp_quest` AS SELECT * FROM `quest_template` WHERE `ID` = 13326;
 UPDATE `tmp_quest` SET
     `ID`                 = @QUEST,
-    `LogTitle`           = 'A Share of the Spoils',
-    `LogDescription`     = 'Hand the spoils to the Quartermaster of Spoils.',
-    `QuestDescription`   = 'You pried this from what was left of Bazil Thredd. It is worth something to the right person, and the right person can be called.$B$BWhat you get back is not yours to choose.',
+    `LogTitle`           = 'A Fragment of Power',
+    `LogDescription`     = 'Hand the fragment to the Echo of Azeroth. Use the fragment again if she has already faded.',
+    `QuestDescription`   = 'The fragment is warm, and something on the other side of it is paying attention.$B$BHold it up and that something will take shape long enough to trade. What it gives back is not yours to choose.',
     `QuestCompletionLog` = 'Hand it over.',
     `RequiredItemId1`    = @ITEM,
     `RequiredItemCount1` = 1,
