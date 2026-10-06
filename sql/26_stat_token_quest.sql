@@ -63,27 +63,25 @@
 SET @ITEM   := 90001;
 SET @QUEST  := 90001;
 SET @BROKER := 90001;
-SET @SPELL  := 900000;
-
--- --- the summon spell -----------------------------------------------------
+-- The doorbell, and nothing more than a doorbell.
 --
--- Only the fields spell 56894 actually sets, read off its DBC row and mapped
--- to these columns by ordinal. Everything else defaults to 0, which is what
--- the DBC holds for them too.
-DELETE FROM `spell_dbc` WHERE `ID` = @SPELL;
-INSERT INTO `spell_dbc`
-    (`ID`, `CastingTimeIndex`, `InterruptFlags`, `ProcChance`, `DurationIndex`, `RangeIndex`,
-     `EquippedItemClass`, `Effect_1`, `ImplicitTargetA_1`, `EffectRadiusIndex_1`,
-     `EffectMiscValue_1`, `EffectMiscValueB_1`, `SpellVisualID_1`, `SpellIconID`,
-     `EffectChainAmplitude_1`, `EffectChainAmplitude_2`, `EffectChainAmplitude_3`, `SchoolMask`,
-     `Name_Lang_enUS`, `Name_Lang_Mask`, `Description_Lang_enUS`, `Description_Lang_Mask`)
-VALUES
-    (@SPELL, 4, 9, 101, 25, 1,
-     -1, 28, 47, 7,
-     @BROKER, 64, 9226, 3155,
-     1065353216, 1065353216, 1065353216, 1,
-     'Call the Echo', 16712190,
-     'Reach through to whatever is listening, and ask it to take shape.', 16712190);
+-- 56894 is the spell item 42922 uses to call up its own quest giver. It is
+-- here because whether an item is usable at all - the "Use:" line on the
+-- tooltip, and whether right-clicking sends CMSG_USE_ITEM - is decided by the
+-- client alone, from its own Spell.dbc.
+--
+-- This originally used a purpose-written spell 900000 in the spell_dbc world
+-- table. That table is a server-side overlay the client never sees, so the
+-- fragment showed no Use: line and right-clicking did nothing at all. A probe
+-- item identical to this one but carrying 56894 did show the line, which is
+-- what pinned the cause on the client rather than on the server.
+--
+-- The ItemScript below intercepts the use and returns true, so the cast never
+-- happens and 56894 never summons what it would normally summon. Nothing has
+-- to be added to the client's Spell.dbc and no patch has to be shipped.
+SET @SPELL  := 56894;
+
+DELETE FROM `spell_dbc` WHERE `ID` = 900000;
 
 -- --- the fragment ---------------------------------------------------------
 DELETE FROM `item_template` WHERE `entry` = @ITEM;
@@ -96,12 +94,17 @@ UPDATE `tmp_item` SET
     -- Both jobs on one item: StartQuest for the first click, and this for
     -- every click after it. No charges, so using it never spends it, and a
     -- minute's cooldown so the Echo cannot be stacked up.
+    --
+    -- mod-statbonus reads spellcooldown_1 back off this row when it applies
+    -- the cooldown by hand, since blocking the cast also skips the cooldown
+    -- the cast would have set. This stays the one place the minute is written.
     `spellid_1`      = @SPELL,
     `spelltrigger_1` = 0,
     `spellcharges_1` = 0,
     `spellcooldown_1` = 60000,
     `spellcategory_1` = 0,
     `spellcategorycooldown_1` = -1,
+    `ScriptName`  = 'item_statbonus_token',
     `stackable`   = 20,
     -- MaxCount must be above zero, and this is not a style choice.
     --
