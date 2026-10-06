@@ -166,7 +166,7 @@ CREATE TEMPORARY TABLE `tmp_quest` AS SELECT * FROM `quest_template` WHERE `ID` 
 UPDATE `tmp_quest` SET
     `ID`                 = @QUEST,
     `LogTitle`           = 'A Fragment of Power',
-    `LogDescription`     = 'Hand the fragment to the Echo of Azeroth. Use the fragment again if she has already faded.',
+    `LogDescription`     = 'Hand the fragment to the Echo of Azeroth before it fades.',
     `QuestDescription`   = 'The fragment is warm, and something on the other side of it is paying attention.$B$BHold it up and that something will take shape long enough to trade. What it gives back is not yours to choose.',
     `QuestCompletionLog` = 'Hand it over.',
     `RequiredItemId1`    = @ITEM,
@@ -184,6 +184,15 @@ UPDATE `tmp_quest` SET
     `MinLevel`           = 1,
     `RewardXPDifficulty` = 0,      -- the bonus is the reward
     `RewardMoney`        = 0,
+    -- Cleared for the same reason as the trinkets below: the clone inherited
+    -- RewardFactionID1 = 909 (Darkmoon Faire) at value index 6, so every
+    -- turn-in was quietly paying faire reputation. Nothing about this quest
+    -- belongs to the faire.
+    `RewardFactionID1` = 0, `RewardFactionValue1` = 0,
+    `RewardFactionID2` = 0, `RewardFactionValue2` = 0,
+    `RewardFactionID3` = 0, `RewardFactionValue3` = 0,
+    `RewardFactionID4` = 0, `RewardFactionValue4` = 0,
+    `RewardFactionID5` = 0, `RewardFactionValue5` = 0,
     -- Cleared, because the clone inherited the Nobles Deck quest's own
     -- rewards: a choice of three Darkmoon trinkets (42987, 44254, 44253),
     -- offered on the turn-in page of a quest that has nothing to do with the
@@ -209,6 +218,31 @@ INSERT INTO `quest_template_addon` (`ID`, `SpecialFlags`) VALUES (@QUEST, 1);   
 
 DELETE FROM `creature_questender` WHERE `quest` = @QUEST;
 INSERT INTO `creature_questender` (`id`, `quest`) VALUES (@BROKER, @QUEST);
+
+-- --- what the Echo says ---------------------------------------------------
+--
+-- Both of these were missing entirely, which is not an error the server
+-- reports: a quest with no quest_request_items / quest_offer_reward row just
+-- shows an empty dialogue box at turn-in.
+--
+-- Neither one can name the stat. RequestItemsText is sent when the Echo is
+-- opened and RewardText when the reward page is shown, and both happen before
+-- the module rolls the pool in OnPlayerCompleteQuest - there is nothing to
+-- name yet. So the text gestures at the trade and the Echo whispers the
+-- result afterwards.
+DELETE FROM `quest_request_items` WHERE `ID` = @QUEST;
+INSERT INTO `quest_request_items` (`ID`, `EmoteOnComplete`, `EmoteOnIncomplete`, `CompletionText`, `VerifiedBuild`)
+VALUES (@QUEST, 1, 0,
+    'You carried it all this way without opening it. Good.$B$BGive it here. I will take the shape out of it and leave what it was holding in you - but understand that I only pour. What lands is whatever the fragment was already carrying, and it was not carrying it for you.',
+    0);
+
+DELETE FROM `quest_offer_reward` WHERE `ID` = @QUEST;
+INSERT INTO `quest_offer_reward`
+    (`ID`, `Emote1`, `Emote2`, `Emote3`, `Emote4`,
+     `EmoteDelay1`, `EmoteDelay2`, `EmoteDelay3`, `EmoteDelay4`, `RewardText`, `VerifiedBuild`)
+VALUES (@QUEST, 4, 1, 0, 0, 0, 2000, 0, 0,
+    'Hold still.$B$BThere. Something of the world that made it has gone into you, and it will not wash out. You will feel where it landed soon enough.$B$BBring me another when you find one. There is a great deal of world, and it is all still happening.',
+    0);
 
 -- --- what it can grant ----------------------------------------------------
 --
