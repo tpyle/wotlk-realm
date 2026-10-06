@@ -241,7 +241,7 @@ SETTINGS = {
         "StatBonus.Token.Count": "1",
         "StatBonus.Token.Creatures": "1716",
         "StatBonus.Broker.Entry": "90001",
-        "StatBonus.Broker.DespawnSeconds": "120",
+        "StatBonus.Broker.DespawnSeconds": "300",
     },
     "modules/mod_talentgrant.conf": {
         "TalentGrant.Enable": "1",

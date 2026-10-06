@@ -52,7 +52,21 @@ UPDATE `tmp_item` SET
     `description` = 'The Stockade''s quartermaster will know what to make of this.',
     `startquest`  = @QUEST,
     `stackable`   = 20,
-    `MaxCount`    = 0,
+    -- MaxCount must be above zero, and this is not a style choice.
+    --
+    -- Accepting a quest from an item destroys that item unless it is one of
+    -- the quest's required items AND its MaxCount is non-zero
+    -- (PlayerQuest.cpp, the TYPEID_ITEM branch of AddQuestAndCheckCompletion).
+    -- With MaxCount 0 the token vanished on accept. The Darkmoon decks get
+    -- away with that because CompleteQuest runs a few lines earlier, so the
+    -- quest is already turn-in-able - but here it left the player holding a
+    -- complete quest, no token, and a broker who despawns in two minutes, with
+    -- no way to call another.
+    --
+    -- Keeping the token means the quest can be abandoned and started again,
+    -- so missing the broker costs nothing. It is still consumed at turn-in,
+    -- by RewardQuest destroying the required items.
+    `MaxCount`    = 100,
     `Quality`     = 3,
     `BuyPrice`    = 0,
     `SellPrice`   = 0,
@@ -109,6 +123,22 @@ UPDATE `tmp_quest` SET
     `MinLevel`           = 1,
     `RewardXPDifficulty` = 0,      -- the bonus is the reward
     `RewardMoney`        = 0,
+    -- Cleared, because the clone inherited the Nobles Deck quest's own
+    -- rewards: a choice of three Darkmoon trinkets (42987, 44254, 44253),
+    -- offered on the turn-in page of a quest that has nothing to do with the
+    -- faire. Easy to miss in a diff against the template, since every one of
+    -- these column names starts with "Reward" and reads as something the
+    -- clone was supposed to bring along.
+    `RewardChoiceItemID1` = 0, `RewardChoiceItemQuantity1` = 0,
+    `RewardChoiceItemID2` = 0, `RewardChoiceItemQuantity2` = 0,
+    `RewardChoiceItemID3` = 0, `RewardChoiceItemQuantity3` = 0,
+    `RewardChoiceItemID4` = 0, `RewardChoiceItemQuantity4` = 0,
+    `RewardChoiceItemID5` = 0, `RewardChoiceItemQuantity5` = 0,
+    `RewardChoiceItemID6` = 0, `RewardChoiceItemQuantity6` = 0,
+    `RewardItem1` = 0, `RewardAmount1` = 0,
+    `RewardItem2` = 0, `RewardAmount2` = 0,
+    `RewardItem3` = 0, `RewardAmount3` = 0,
+    `RewardItem4` = 0, `RewardAmount4` = 0,
     `VerifiedBuild`      = 0;
 INSERT INTO `quest_template` SELECT * FROM `tmp_quest`;
 DROP TEMPORARY TABLE `tmp_quest`;
