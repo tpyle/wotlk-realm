@@ -60,7 +60,8 @@
 -- read at startup.
 -- ---------------------------------------------------------------------------
 
-SET @ITEM   := 90001;
+SET @ITEM   := 90001;   -- what the kill drops, and what starts the quest
+SET @FOCUS  := 90002;   -- what the quest hands back, and what calls the Echo
 SET @QUEST  := 90001;
 SET @BROKER := 90001;
 -- The doorbell, and nothing more than a doorbell.
@@ -91,9 +92,62 @@ UPDATE `tmp_item` SET
     `name`        = 'Fragment of Power',
     `description` = 'Something is listening on the other side of it.',
     `startquest`  = @QUEST,
-    -- Both jobs on one item: StartQuest for the first click, and this for
-    -- every click after it. No charges, so using it never spends it, and a
-    -- minute's cooldown so the Echo cannot be stacked up.
+    -- No use effect on this one, because the client will not give it one.
+    --
+    -- An item with startquest set has its right-click taken by the quest
+    -- path: with the quest already active the client answers "You are already
+    -- on that quest" and never sends CMSG_USE_ITEM, so the Use: line and the
+    -- ItemScript behind it were unreachable no matter what spell was on it.
+    --
+    -- Which is exactly why the stock Darkmoon pair is two items with the same
+    -- name. 37164 Swords Deck carries startquest and nothing else; quest 12798
+    -- hands back 42922 Swords Deck, which carries the summon spell and is what
+    -- you turn in. The player never sees the swap. Same split here, with the
+    -- summoning half as @FOCUS below.
+    `spellid_1`      = 0,
+    `spelltrigger_1` = 0,
+    `spellcharges_1` = 0,
+    `spellcooldown_1` = 0,
+    `spellcategory_1` = 0,
+    `spellcategorycooldown_1` = 0,
+    `stackable`   = 20,
+    -- Consumed on accept, which is now the intent rather than a bug.
+    --
+    -- This used to need MaxCount above zero to survive being accepted from:
+    -- accepting a quest from an item destroys that item unless it is one of
+    -- the quest's required items AND its MaxCount is non-zero (PlayerQuest.cpp,
+    -- the TYPEID_ITEM branch of AddQuestAndCheckCompletion). With the split,
+    -- @FOCUS is the required item and this one is supposed to be spent, so 0
+    -- is right - and 0 also means no cap on how many a player may hoard,
+    -- which a farmable token wants.
+    `MaxCount`    = 0,
+    `Quality`     = 3,
+    `BuyPrice`    = 0,
+    `SellPrice`   = 0,
+    `Flags`       = 0,
+    `bonding`     = 1,
+    `VerifiedBuild` = 0;
+INSERT INTO `item_template` SELECT * FROM `tmp_item`;
+DROP TEMPORARY TABLE `tmp_item`;
+
+-- --- the focus ------------------------------------------------------------
+--
+-- Handed over by the quest on accept (quest_template.StartItem) and taken
+-- back at turn-in, so it only exists while the quest is open. Same name as
+-- the token, as the stock pair does it, so the swap is invisible.
+--
+-- This is the half that carries the summon, because it has no startquest to
+-- lose its right-click to.
+DELETE FROM `item_template` WHERE `entry` = @FOCUS;
+CREATE TEMPORARY TABLE `tmp_focus` AS SELECT * FROM `item_template` WHERE `entry` = @ITEM;
+UPDATE `tmp_focus` SET
+    `entry`       = @FOCUS,
+    `startquest`  = 0,
+    -- A doorbell, nothing more. 56894 is the spell stock item 42922 uses; it
+    -- is here so the client draws a Use: line and sends CMSG_USE_ITEM at all,
+    -- which it decides by itself out of its own Spell.dbc. The ItemScript
+    -- returns true and the cast never happens, so 56894 never summons what it
+    -- would normally summon.
     --
     -- mod-statbonus reads spellcooldown_1 back off this row when it applies
     -- the cooldown by hand, since blocking the cast also skips the cooldown
@@ -105,30 +159,12 @@ UPDATE `tmp_item` SET
     `spellcategory_1` = 0,
     `spellcategorycooldown_1` = -1,
     `ScriptName`  = 'item_statbonus_token',
-    `stackable`   = 20,
-    -- MaxCount must be above zero, and this is not a style choice.
-    --
-    -- Accepting a quest from an item destroys that item unless it is one of
-    -- the quest's required items AND its MaxCount is non-zero
-    -- (PlayerQuest.cpp, the TYPEID_ITEM branch of AddQuestAndCheckCompletion).
-    -- With MaxCount 0 the token vanished on accept. The Darkmoon decks get
-    -- away with that because CompleteQuest runs a few lines earlier, so the
-    -- quest is already turn-in-able - but here it left the player holding a
-    -- complete quest, no token, and a broker who despawns in two minutes, with
-    -- no way to call another.
-    --
-    -- Keeping the token means the quest can be abandoned and started again,
-    -- so missing the broker costs nothing. It is still consumed at turn-in,
-    -- by RewardQuest destroying the required items.
-    `MaxCount`    = 100,
-    `Quality`     = 3,
-    `BuyPrice`    = 0,
-    `SellPrice`   = 0,
-    `Flags`       = 0,
-    `bonding`     = 1,
+    `bonding`     = 4,     -- quest item, as 42922 is
+    `stackable`   = 1,     -- one open quest, one focus
+    `MaxCount`    = 0,
     `VerifiedBuild` = 0;
-INSERT INTO `item_template` SELECT * FROM `tmp_item`;
-DROP TEMPORARY TABLE `tmp_item`;
+INSERT INTO `item_template` SELECT * FROM `tmp_focus`;
+DROP TEMPORARY TABLE `tmp_focus`;
 
 -- --- the broker -----------------------------------------------------------
 DELETE FROM `creature_template` WHERE `entry` = @BROKER;
@@ -172,17 +208,16 @@ UPDATE `tmp_quest` SET
     `LogDescription`     = 'Hand the fragment to the Echo of Azeroth before it fades.',
     `QuestDescription`   = 'The fragment is warm, and something on the other side of it is paying attention.$B$BHold it up and that something will take shape long enough to trade. What it gives back is not yours to choose.',
     `QuestCompletionLog` = 'Hand it over.',
-    `RequiredItemId1`    = @ITEM,
+    `RequiredItemId1`    = @FOCUS,
     `RequiredItemCount1` = 1,
-    -- Cleared, not pointed at our own token.
+    -- The focus, handed over on accept.
     --
-    -- The clone inherited StartItem = 44326, the Nobles Deck, which would have
-    -- had this quest claim somebody else's item as its source. Pointing it at
-    -- @ITEM instead looked right and is not: StartItem is the item a quest
-    -- HANDS OVER on accept (Quest::GetSrcItemId), and the token already
-    -- arrives from the kill. The item starts the quest through
-    -- item_template.startquest; the quest needs no source item of its own.
-    `StartItem`          = 0,
+    -- StartItem is the item a quest GIVES OUT when accepted
+    -- (Quest::GetSrcItemId), not the item it comes from - which is why it was
+    -- wrong to point this at the token and wrong again to clear it. The token
+    -- brings the player here through item_template.startquest; this hands back
+    -- the half that can actually be used, and takes it away at turn-in.
+    `StartItem`          = @FOCUS,
     `QuestLevel`         = -1,     -- scales to the player, as this realm's quests do
     `MinLevel`           = 1,
     `RewardXPDifficulty` = 0,      -- the bonus is the reward
