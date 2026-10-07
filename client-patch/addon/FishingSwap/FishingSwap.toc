@@ -1,0 +1,6 @@
+## Interface: 30300
+## Title: Fishing Swap
+## Notes: Equips a fishing pole when a cast is refused for want of one, and puts your weapons back when you stop fishing. Purely client-side; the server's requirement is unchanged.
+## Author: server-side companion patch
+## SavedVariablesPerCharacter: FishingSwapDB
+FishingSwap.lua

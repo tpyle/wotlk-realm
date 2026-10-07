@@ -55,9 +55,11 @@ into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mo
 
 This repository is [tpyle/wotlk-realm](https://github.com/tpyle/wotlk-realm).
 
-The two client addons written here, `BankReagents` and `ExtraGlyphs`, live in
-`client-patch/addon/` in this repository rather than in the repositories of
-the modules they talk to, so that there is one copy of each.
+The client addons written here - `BankReagents`, `ExtraGlyphs` and
+`FishingSwap` - live in `client-patch/addon/` in this repository rather than
+in the repositories of the modules they talk to, so that there is one copy of
+each. `FishingSwap` talks to no module at all; it is there because the thing
+it works around is entirely client-side.
 
 ## Layout
 
@@ -70,7 +72,7 @@ the modules they talk to, so that there is one copy of each.
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
 | `tools/` | The DBC generators, the MPQ packer, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, TransmogAzerothCore) |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |
