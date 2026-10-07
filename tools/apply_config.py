@@ -242,6 +242,7 @@ SETTINGS = {
         "StatBonus.Token.Creatures": "",
         "StatBonus.Token.Chance": "100",
         "StatBonus.Token.DungeonChance": "20",
+        "StatBonus.Token.HeroicChance": "33",
         "StatBonus.Token.RaidChance": "0",
         "StatBonus.Token.SkipBots": "1",
         "StatBonus.Broker.Entry": "90001",
