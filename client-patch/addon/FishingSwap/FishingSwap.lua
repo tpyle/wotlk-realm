@@ -75,7 +75,10 @@ end
 -- the string actually observed on this realm kept as a backstop in case the
 -- global behind it is named something else again.
 local function RefusalMessages()
-    local msgs = { ["Must have a fishing pole equipped"] = true }
+    -- Lower-cased throughout, because the string this realm's client actually
+    -- sends is "Must have a Fishing Pole equipped" - capitalised mid-sentence
+    -- - and an exact-match table missed it over nothing but two letters.
+    local msgs = { ["must have a fishing pole equipped"] = true }
 
     -- Only messages that are specifically about a pole.
     --
@@ -90,11 +93,31 @@ local function RefusalMessages()
     }) do
         local text = _G[key]
         if type(text) == "string" and text ~= "" then
-            msgs[text] = true
+            msgs[text:lower()] = true
         end
     end
 
     return msgs
+end
+
+-- Does this message mean "no pole"?
+--
+-- Belt and braces, after the capitalisation miss. The table catches the exact
+-- strings; the substring catches any English rewording of them. Matching on
+-- "fishing pole" is still specific enough to be safe - the generic
+-- wrong-weapon refusal never names a pole, so a rogue fumbling Mutilate
+-- cannot reach this.
+local function IsRefusal(message)
+    if type(message) ~= "string" then
+        return false
+    end
+
+    local lowered = message:lower()
+    if REFUSALS and REFUSALS[lowered] then
+        return true
+    end
+
+    return lowered:find("fishing pole", 1, true) ~= nil
 end
 
 local REFUSALS = nil   -- filled on load, once GlobalStrings exist
@@ -261,7 +284,7 @@ events:SetScript("OnEvent", function(_, event, arg1)
     -- UI_ERROR_MESSAGE, which is where a refused cast lands. The client
     -- refuses locally, so this is the only notice there is - nothing reaches
     -- the server to react to.
-    if not REFUSALS or not REFUSALS[arg1] then
+    if not IsRefusal(arg1) then
         Debug("ignored error: %s", tostring(arg1))
         return
     end
