@@ -226,7 +226,7 @@ SETTINGS = {
         # kinds, and they are not on the same scale: a rating worth noticing is
         # hundreds of points where a stat is tens, so it is set for the ratings
         # and stats are simply granted well under it.
-        "StatBonus.Limit": "1000",
+        "StatBonus.Limit": "10000",
         # Movement is the one kind measured in percentage points, so it gets
         # its own ceiling - 1000 here would be eleven times normal speed. 100
         # is at most double, which is a mount's worth and plenty for a reward.
