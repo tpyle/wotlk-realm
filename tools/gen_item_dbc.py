@@ -32,24 +32,34 @@ the response in turn and left only the file the client reads for itself.
 What it does
 ------------
 
-Reads item_template, finds every entry with no row in Item.dbc, and appends
-one built from the database columns, so the DBC cannot disagree with the table
-it was generated from. Nothing existing is modified: only missing rows are
-added, so a rerun after adding an item is safe and a rerun after adding none
-is a no-op.
+Reads item_template, finds every entry with no row in the STOCK Item.dbc, and
+appends one built from the database columns, so the DBC cannot disagree with
+the table it was generated from.
+
+The base is the stock file, not the last output, and that is what makes a
+rerun pick up a CHANGED row and not just a new one - the custom rows are
+rebuilt from scratch every time rather than accumulated. An earlier version
+read its own output, which meant retargeting an item's icon left the old
+displayid in place with nothing to say so.
+
+Nothing stock is ever modified. A stock row and item_template do legitimately
+disagree in places, and the client's copy is the one it draws from, so
+rewriting those from the table would be a change nobody asked for.
 
 It writes both copies. The server's at run/data/dbc, because the server reads
 the same file and there is no reason for the two to differ, and the client's
 into its own staging directory for packing.
 
 Unlike the openskills generator, nothing here is owned in memory by a module,
-so there is no .orig-restore trap to avoid - but re-extracting the DBCs from
-the client WILL revert the server's copy, and this script is the way to put it
-back.
+so there is no .orig-restore trap to avoid.
 
 Needs no server restart for the icon, which is entirely client-side. The
 server picks up the new rows at its next restart, and nothing depends on it
 doing so.
+
+tools/gen_spell_dbc.py fills the same staging directory and packs the same
+archive, so whichever runs second picks up the other's file; after changing
+items run both, or run this one and then that one.
 """
 
 import struct
@@ -59,7 +69,15 @@ from pathlib import Path
 
 ROOT = Path(__file__).resolve().parent.parent
 
-SOURCE = ROOT / "run/data/dbc/Item.dbc"
+# The stock file, kept out of the repository because it is Blizzard's to
+# distribute and not ours: client-patch/stock-dbc is gitignored, and
+# tools/mpq_extract probes it back out of a client archive if it goes missing
+# (patch-A carries an unmodified copy).
+STOCK = ROOT / "client-patch/stock-dbc/Item.dbc"
+
+# Where the server reads it from, and so what this writes. Regenerated whole
+# from STOCK, which is why it must not be the input.
+SERVER = ROOT / "run/data/dbc/Item.dbc"
 
 # Its own staging directory and its own archive, so a repack of anything else
 # cannot drop these rows and this cannot pick up anybody else's files.
@@ -124,14 +142,14 @@ def rows_from_db():
 
 
 def main():
-    dbc = read_dbc(SOURCE)
+    dbc = read_dbc(STOCK)
     have = existing_ids(dbc)
     table = rows_from_db()
 
     missing = sorted(entry for entry in table if entry not in have)
 
     if not missing:
-        print(f"{SOURCE}: every item_template entry already has a row; nothing to do")
+        print(f"{STOCK}: every item_template entry already has a row; nothing to do")
         return
 
     added = b""
@@ -150,8 +168,8 @@ def main():
     out += added
     out += dbc["strings"]
 
-    SOURCE.write_bytes(out)
-    print(f"{SOURCE}: {len(missing)} row(s) appended, now {dbc['records'] + len(missing)}")
+    SERVER.write_bytes(out)
+    print(f"{SERVER}: {len(missing)} row(s) appended, now {dbc['records'] + len(missing)}")
 
     STAGING.parent.mkdir(parents=True, exist_ok=True)
     STAGING.write_bytes(out)
@@ -159,6 +177,16 @@ def main():
 
     if not PACKER.exists():
         sys.exit(f"{PACKER} is missing; build it before packing")
+
+    # Both generators fill this directory and pack this one archive, so a run
+    # here ships whatever gen_spell_dbc.py left behind. Its output is gitignored
+    # for size, which means a fresh checkout has an Item.dbc and no Spell.dbc -
+    # and packing that would quietly drop the Use: line off every custom item.
+    spells = STAGING_DIR / "DBFilesClient/Spell.dbc"
+    if not spells.exists():
+        sys.exit(f"{spells} is missing, so packing now would ship a patch with no\n"
+                 "custom spells in it and no Use: line on any custom item.\n"
+                 "Run tools/gen_spell_dbc.py first; it packs the archive too.")
 
     result = subprocess.run([str(PACKER), str(ARCHIVE), str(STAGING_DIR)],
                             capture_output=True, text=True)

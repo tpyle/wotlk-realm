@@ -71,8 +71,8 @@ it works around is entirely client-side.
 | `run/etc/` | Server configuration (`worldserver.conf`, `authserver.conf`, `modules/*.conf`) |
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
-| `tools/` | The DBC generators, the MPQ packer, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc rows for custom items) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
+| `tools/` | The DBC generators, the MPQ packer and extractor, the config script and the diagnostics |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc and Spell.dbc rows for custom items: their icons and their `Use:` lines, both of which the client takes from its own copies and not from anything the server sends) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |

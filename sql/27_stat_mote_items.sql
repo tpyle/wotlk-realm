@@ -1,65 +1,54 @@
 -- ---------------------------------------------------------------------------
--- A mote that grants a stat outright, with no quest in the way
+-- Motes: a stat granted outright, with no quest in the way
 --
 -- The short route alongside sql/26_stat_token_quest.sql: no quest to accept,
--- no Echo to summon, no turn-in. Right-click it and the bonus is yours, and
--- the mote is spent.
+-- no Echo to summon, no turn-in. Right-click a mote and the bonus is yours,
+-- and the mote is spent. One per primary stat.
 --
--- What it grants is the statbonus_item_reward row at the bottom, not anything
--- in item_template, so retuning the amount is an UPDATE and a
--- ".statbonus reload" rather than a rebuild. Adding a second mote - agility,
--- say - is a copy of both halves with a new entry and a new Id.
+--   90003  Mote of Vigour    stamina     Greater Nether Essence  icon
+--   90004  Mote of Might     strength    Greater Eternal Essence
+--   90005  Mote of Grace     agility     Greater Astral Essence
+--   90006  Mote of Insight   intellect   Greater Magic Essence
+--   90007  Mote of Serenity  spirit      Greater Mystic Essence
 --
--- Rerunning this file is safe: every statement is a DELETE followed by an
--- INSERT of the same rows.
+-- The icons are the enchanting essences' own DisplayInfoIDs, which is all an
+-- icon is: item_template.displayid resolves through the CLIENT's Item.dbc and
+-- ItemDisplayInfo.dbc, so borrowing a stock display id borrows its art with
+-- nothing to ship but the Item.dbc row. tools/gen_item_dbc.py writes that row;
+-- without it the client draws a question mark however complete the server's
+-- answer is.
+--
+-- 90003 keeps stamina rather than being renumbered into stat order, because
+-- motes are already sitting in players' bags and an entry means a particular
+-- item to them.
+--
+-- WHAT A MOTE GRANTS is its statbonus_item_reward row, not anything in
+-- item_template, so retuning an amount is an UPDATE and a ".statbonus reload"
+-- rather than a rebuild. The tooltip is the one thing that does not follow:
+-- it comes from the spell description in sql/28_custom_spells.sql and so from
+-- a client patch. gen_spell_dbc.py cross-checks the two and refuses to ship a
+-- tooltip that disagrees with the table.
+--
+-- Rerunning this file is safe: every statement is a DELETE or an INSERT of the
+-- same rows.
 -- ---------------------------------------------------------------------------
 
-SET @MOTE  := 90003;
+-- Cloned from the quest fragment (90001) so the shared shape - quest class,
+-- bind on pickup, no vendor price - stays in one place.
+SET @SOURCE := 90001;
 
--- The spell is a doorbell and is never cast.
---
--- Whether an item is usable at all - the "Use:" line on the tooltip and
--- whether right-clicking sends CMSG_USE_ITEM - is decided by the client out of
--- its own Spell.dbc. A purpose-written spell in the spell_dbc world table does
--- not work, because that table is a server-side overlay the client never sees;
--- an item carrying one shows no Use: line and right-clicks into nothing. That
--- was measured on item 90001 rather than guessed: a probe item differing only
--- in its spell id did show the line.
---
--- 5735 is 'REUSE', one of Blizzard's own placeholders, chosen out of the 368
--- spells in Spell.dbc that are instant, self-targeted, free of cost, reagents
--- and weapon requirements, neither passive nor hidden - and carry no
--- description, which matters because the client renders a spell's description
--- as the Use: line. An empty one leaves the tooltip saying nothing rather than
--- saying something untrue, which is what item 90001 does with its own
--- borrowed spell.
---
--- ScriptName item_statbonus_grant returns true from OnUse, so this spell's own
--- (empty) effect is never reached.
-SET @SPELL := 5735;
+DELETE FROM `item_template` WHERE `entry` BETWEEN 90003 AND 90007;
 
--- --- the mote -------------------------------------------------------------
-DELETE FROM `item_template` WHERE `entry` = @MOTE;
-CREATE TEMPORARY TABLE `tmp_mote` AS SELECT * FROM `item_template` WHERE `entry` = 90001;
+CREATE TEMPORARY TABLE `tmp_mote` AS SELECT * FROM `item_template` WHERE 0;
+
+-- The columns every mote shares. The spell is a doorbell and is never cast:
+-- ScriptName item_statbonus_grant returns true from OnUse, so the (dummy)
+-- effect is not reached. It still has to exist and the client still has to
+-- know it, or there is no Use: line and no right-click at all.
+INSERT INTO `tmp_mote` SELECT * FROM `item_template` WHERE `entry` = @SOURCE;
 UPDATE `tmp_mote` SET
-    `entry`       = @MOTE,
-    `name`        = 'Mote of Vigour',
-    -- The tooltip's own "Use:" line cannot say this, so the description does.
-    --
-    -- That line is built by the client from the DESCRIPTION of the item's
-    -- spell, out of its own Spell.dbc. An empty description does not give a
-    -- blank line, it removes the line altogether - so there is no way to tell
-    -- from the tooltip that the thing is usable at all. And no stock spell
-    -- describes a permanent +1 stamina: of the 149 whose description even
-    -- mentions Stamina, every one resolves $s1 from its own effect values and
-    -- would print somebody else's number.
-    --
-    -- description is the one piece of tooltip text that is ours, server-side,
-    -- with no client patch and no borrowed wording.
-    `description` = 'Use: Permanently increases your Stamina by 1. It wants to be part of something that moves.',
-    `Quality`     = 2,     -- uncommon; it is a small, ordinary gain
-    `startquest`  = 0,     -- the point of this one: no quest to collide with
-    `spellid_1`      = @SPELL,
+    `Quality`     = 2,     -- uncommon; each is a small, ordinary gain
+    `startquest`  = 0,     -- the point of these: no quest to collide with
     `spelltrigger_1` = 0,
     -- No charges, because the script spends the item itself.
     --
@@ -76,14 +65,69 @@ UPDATE `tmp_mote` SET
     `stackable`   = 20,
     `MaxCount`    = 0,     -- no cap on how many may be carried
     `VerifiedBuild` = 0;
+
+-- Then one row per stat: set the temp row's own columns and insert it, which
+-- keeps the shared shape above in one place instead of repeating forty columns
+-- five times.
+--
+-- description is flavour only now. It used to carry a hand-written "Use:"
+-- line, because a borrowed spell with an empty description removes the real
+-- one altogether rather than leaving it blank. With our own spells in
+-- 28_custom_spells.sql the client writes that line itself, and this field goes
+-- back to being the quoted text underneath it.
+
+UPDATE `tmp_mote` SET
+    `entry`       = 90003,
+    `name`        = 'Mote of Vigour',
+    `displayid`   = 20896,
+    `spellid_1`   = 90103,
+    `description` = 'It wants to be part of something that moves.';
 INSERT INTO `item_template` SELECT * FROM `tmp_mote`;
+
+UPDATE `tmp_mote` SET
+    `entry`       = 90004,
+    `name`        = 'Mote of Might',
+    `displayid`   = 26772,
+    `spellid_1`   = 90104,
+    `description` = 'It leans, very slightly, against your hand.';
+INSERT INTO `item_template` SELECT * FROM `tmp_mote`;
+
+UPDATE `tmp_mote` SET
+    `entry`       = 90005,
+    `name`        = 'Mote of Grace',
+    `displayid`   = 20613,
+    `spellid_1`   = 90105,
+    `description` = 'It will not sit still long enough to be looked at properly.';
+INSERT INTO `item_template` SELECT * FROM `tmp_mote`;
+
+UPDATE `tmp_mote` SET
+    `entry`       = 90006,
+    `name`        = 'Mote of Insight',
+    `displayid`   = 20609,
+    `spellid_1`   = 90106,
+    `description` = 'It hums with half-finished questions.';
+INSERT INTO `item_template` SELECT * FROM `tmp_mote`;
+
+UPDATE `tmp_mote` SET
+    `entry`       = 90007,
+    `name`        = 'Mote of Serenity',
+    `displayid`   = 20795,
+    `spellid_1`   = 90107,
+    `description` = 'It is very quiet, and very awake.';
+INSERT INTO `item_template` SELECT * FROM `tmp_mote`;
+
 DROP TEMPORARY TABLE `tmp_mote`;
 
--- --- what it grants -------------------------------------------------------
+-- --- what each one grants --------------------------------------------------
 --
--- One row, so it is a certainty rather than a gamble: Kind 0 is a primary
--- stat and Id 2 is stamina, the same vocabulary as character_stat_bonus and
--- the quest pool. Several rows sharing @MOTE would make it random instead.
-DELETE FROM `statbonus_item_reward` WHERE `ItemId` = @MOTE;
+-- One row per item, so each is a certainty rather than a gamble: Kind 0 is a
+-- primary stat and the Id is its index, the same vocabulary as
+-- character_stat_bonus and the quest pool. Several rows sharing an ItemId
+-- would make that item random instead.
+DELETE FROM `statbonus_item_reward` WHERE `ItemId` BETWEEN 90003 AND 90007;
 INSERT INTO `statbonus_item_reward` (`ItemId`, `Kind`, `Id`, `Amount`, `Weight`, `Comment`) VALUES
-    (@MOTE, 0, 2, 1, 1, 'Mote of Vigour: +1 stamina');
+    (90003, 0, 2, 1, 1, 'Mote of Vigour: +1 stamina'),
+    (90004, 0, 0, 1, 1, 'Mote of Might: +1 strength'),
+    (90005, 0, 1, 1, 1, 'Mote of Grace: +1 agility'),
+    (90006, 0, 3, 1, 1, 'Mote of Insight: +1 intellect'),
+    (90007, 0, 4, 1, 1, 'Mote of Serenity: +1 spirit');

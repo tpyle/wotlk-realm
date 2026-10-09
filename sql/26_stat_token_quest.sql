@@ -80,16 +80,21 @@ SET @BROKER := 90001;
 -- The ItemScript below intercepts the use and returns true, so the cast never
 -- happens and 56894 never summons what it would normally summon. Nothing has
 -- to be added to the client's Spell.dbc and no patch has to be shipped.
--- 5735 'REUSE' and not 56894, which was here first.
+-- 90102, ours, and neither 56894 nor 5735 - both of which were here first.
 --
--- Both are doorbells and neither is ever cast, but the client builds the
--- tooltip's "Use:" line from the spell's DESCRIPTION - and 56894 has one, so
--- the fragment was offering to "Communicate through the spirit world to
--- request an audience with a Darkmoon Fortune Teller". 5735 is one of
--- Blizzard's own placeholders and has no description, which removes the line
--- rather than printing something untrue. What the item does is said in its own
--- description field instead, which is ours.
-SET @SPELL  := 5735;
+-- All three are doorbells and none is ever cast, but the client builds the
+-- tooltip's "Use:" line from the spell's DESCRIPTION, so the choice is the
+-- choice of what the fragment claims to do. 56894 is the spell stock item
+-- 42922 carries, and it had the fragment offering to "Communicate through the
+-- spirit world to request an audience with a Darkmoon Fortune Teller". 5735
+-- 'REUSE' is one of Blizzard's own placeholders and has no description, which
+-- turned out to remove the Use: line altogether rather than leave it blank -
+-- so the item looked unusable while working perfectly.
+--
+-- 90102 is defined in sql/28_custom_spells.sql with the description we want,
+-- which is only possible because the client now gets a Spell.dbc from
+-- patch-W. See that file for why the 90100-90199 block exists.
+SET @SPELL  := 90102;
 
 DELETE FROM `spell_dbc` WHERE `ID` = 900000;
 
@@ -152,15 +157,14 @@ CREATE TEMPORARY TABLE `tmp_focus` AS SELECT * FROM `item_template` WHERE `entry
 UPDATE `tmp_focus` SET
     `entry`       = @FOCUS,
     `startquest`  = 0,
-    -- Says what the tooltip's "Use:" line cannot: that line comes from the
-    -- spell's description in the client's own Spell.dbc, and the doorbell spell
-    -- deliberately has none.
-    `description` = 'Use: Calls the Echo of Azeroth to you. Something is listening on the other side of it.',
-    -- A doorbell, nothing more. 56894 is the spell stock item 42922 uses; it
-    -- is here so the client draws a Use: line and sends CMSG_USE_ITEM at all,
-    -- which it decides by itself out of its own Spell.dbc. The ItemScript
-    -- returns true and the cast never happens, so 56894 never summons what it
-    -- would normally summon.
+    -- Flavour only. This used to carry a hand-written "Use:" line, because the
+    -- doorbell spell had no description and so produced no real one; @SPELL
+    -- now has one of its own.
+    `description` = 'Something is listening on the other side of it.',
+    -- A doorbell, nothing more. It is here so the client draws a Use: line and
+    -- sends CMSG_USE_ITEM at all, which it decides by itself out of its own
+    -- Spell.dbc. The ItemScript returns true and the cast never happens, so
+    -- the spell's own (dummy) effect is never reached.
     --
     -- mod-statbonus reads spellcooldown_1 back off this row when it applies
     -- the cooldown by hand, since blocking the cast also skips the cooldown
