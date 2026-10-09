@@ -42,7 +42,7 @@ DELETE FROM `item_template` WHERE `entry` BETWEEN 90003 AND 90007;
 CREATE TEMPORARY TABLE `tmp_mote` AS SELECT * FROM `item_template` WHERE 0;
 
 -- The columns every mote shares. Unlike the fragment, a mote's spell IS cast:
--- it has a 3 second cast time so the client draws a bar, and a SpellScript
+-- it has a 1.5 second cast time so the client draws a bar, and a SpellScript
 -- grants the bonus when the cast completes. The client still has to know the
 -- spell either way, or there is no Use: line and no right-click at all.
 INSERT INTO `tmp_mote` SELECT * FROM `item_template` WHERE `entry` = @SOURCE;

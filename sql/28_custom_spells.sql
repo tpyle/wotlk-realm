@@ -88,7 +88,11 @@ VALUES
 -- The motes do cast, for real, and these four fields are what makes that look
 -- like disenchanting - because they are Disenchant's own (spell 13262):
 --
---   CastingTimeIndex 14   3000 ms, per SpellCastTimes.dbc - disenchant's time
+--   CastingTimeIndex 16   1500 ms, per SpellCastTimes.dbc - HALF disenchant's
+--                         3000 ms (index 14), which is the one place these
+--                         deliberately differ from it: motes stack to 20 and
+--                         three seconds each makes a full stack a minute of
+--                         standing still
 --   InterruptFlags   31   movement, push-back, interrupt and abort-on-damage,
 --                         so walking away or being hit cancels it
 --   Attributes      272   IS_ABILITY | DO_NOT_LOG: keeps it out of the combat
@@ -98,12 +102,12 @@ VALUES
 -- Not copied from Disenchant: AttributesEx2 0x2000 (enchanting-specific) and
 -- Targets 16 (TARGET_FLAG_ITEM), since these are cast on the caster.
 --
--- The cast time is the one dial worth knowing about: index 4 is 1000 ms and
--- index 16 is 1500 ms if three seconds a mote turns out to be tedious. It has
--- to match on both sides, so changing it means rerunning
--- tools/gen_spell_dbc.py and re-copying patch-W.
+-- The cast time is the one dial worth knowing about: index 14 is 3000 ms and
+-- index 4 is 1000 ms. It has to match on both sides - the client draws the bar
+-- from its own copy - so changing it means rerunning tools/gen_spell_dbc.py
+-- and re-copying patch-W into the client, not just an UPDATE here.
 UPDATE `spell_dbc` SET
-    `CastingTimeIndex` = 14,
+    `CastingTimeIndex` = 16,
     `InterruptFlags`   = 31,
     `Attributes`       = 272,
     `SpellVisualID_1`  = 3220
