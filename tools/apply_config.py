@@ -246,6 +246,11 @@ SETTINGS = {
         "StatBonus.Token.DungeonChance": "10",
         "StatBonus.Token.HeroicChance": "15",
         "StatBonus.Token.RaidChance": "0",
+        # And a very thin chance off anything else worth killing, so the world
+        # outside a dungeon is not empty of them: 0.01% is one mote per 10,000
+        # kills, which is a pleasant surprise rather than a source. Bots are
+        # skipped, so the 500 of them killing all day add nothing.
+        "StatBonus.Token.AnyChance": "0.01",
         "StatBonus.Token.SkipBots": "1",
         # The quest chain - the Fragment of Power, the Echo of Azeroth who
         # takes it, and the turn-in - set aside for now in favour of the motes,
