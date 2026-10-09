@@ -78,3 +78,49 @@ VALUES
         'Permanently increases your Intellect by 1.'),
     (90107, 1, 101, 1, -1, 3, 1, 1, 1, 1, 'Absorb Mote of Serenity',
         'Permanently increases your Spirit by 1.');
+
+-- --- a cast bar on the motes ----------------------------------------------
+--
+-- The fragment (90102) stays instant: it is a doorbell, and its ItemScript
+-- stops the cast before it starts, so a cast time there would be a bar that
+-- never appears.
+--
+-- The motes do cast, for real, and these four fields are what makes that look
+-- like disenchanting - because they are Disenchant's own (spell 13262):
+--
+--   CastingTimeIndex 14   3000 ms, per SpellCastTimes.dbc - disenchant's time
+--   InterruptFlags   31   movement, push-back, interrupt and abort-on-damage,
+--                         so walking away or being hit cancels it
+--   Attributes      272   IS_ABILITY | DO_NOT_LOG: keeps it out of the combat
+--                         log, and stops haste shortening the cast
+--   SpellVisualID_1 3220  disenchant's own animation, for the look of it
+--
+-- Not copied from Disenchant: AttributesEx2 0x2000 (enchanting-specific) and
+-- Targets 16 (TARGET_FLAG_ITEM), since these are cast on the caster.
+--
+-- The cast time is the one dial worth knowing about: index 4 is 1000 ms and
+-- index 16 is 1500 ms if three seconds a mote turns out to be tedious. It has
+-- to match on both sides, so changing it means rerunning
+-- tools/gen_spell_dbc.py and re-copying patch-W.
+UPDATE `spell_dbc` SET
+    `CastingTimeIndex` = 14,
+    `InterruptFlags`   = 31,
+    `Attributes`       = 272,
+    `SpellVisualID_1`  = 3220
+WHERE `ID` BETWEEN 90103 AND 90107;
+
+-- --- and what runs when it finishes ---------------------------------------
+--
+-- SpellScript rather than ItemScript, which is the whole difference between
+-- the two grant paths: an ItemScript that returns true from OnUse stops the
+-- cast (no cast, no bar), where this one lets it happen and takes the effect
+-- when it lands. The item is consumed by the core from spellcharges_1 = -1,
+-- in Spell::TakeCastItem - which runs at the end of Spell::cast, after the
+-- effects, so an interrupted cast costs nothing.
+DELETE FROM `spell_script_names` WHERE `spell_id` BETWEEN 90100 AND 90199;
+INSERT INTO `spell_script_names` (`spell_id`, `ScriptName`) VALUES
+    (90103, 'spell_statbonus_grant'),
+    (90104, 'spell_statbonus_grant'),
+    (90105, 'spell_statbonus_grant'),
+    (90106, 'spell_statbonus_grant'),
+    (90107, 'spell_statbonus_grant');

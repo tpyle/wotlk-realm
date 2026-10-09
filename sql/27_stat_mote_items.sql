@@ -41,26 +41,31 @@ DELETE FROM `item_template` WHERE `entry` BETWEEN 90003 AND 90007;
 
 CREATE TEMPORARY TABLE `tmp_mote` AS SELECT * FROM `item_template` WHERE 0;
 
--- The columns every mote shares. The spell is a doorbell and is never cast:
--- ScriptName item_statbonus_grant returns true from OnUse, so the (dummy)
--- effect is not reached. It still has to exist and the client still has to
--- know it, or there is no Use: line and no right-click at all.
+-- The columns every mote shares. Unlike the fragment, a mote's spell IS cast:
+-- it has a 3 second cast time so the client draws a bar, and a SpellScript
+-- grants the bonus when the cast completes. The client still has to know the
+-- spell either way, or there is no Use: line and no right-click at all.
 INSERT INTO `tmp_mote` SELECT * FROM `item_template` WHERE `entry` = @SOURCE;
 UPDATE `tmp_mote` SET
     `Quality`     = 2,     -- uncommon; each is a small, ordinary gain
     `startquest`  = 0,     -- the point of these: no quest to collide with
     `spelltrigger_1` = 0,
-    -- No charges, because the script spends the item itself.
+    -- Consumed on use, by the core rather than by a script.
     --
-    -- spellcharges_1 = -1 would be the usual way to say "consumed on use", but
-    -- charges are taken in CastItemUseSpell, and the script returns true
-    -- before that runs. Leaving it at 0 and destroying one in the script keeps
-    -- the two from both trying.
-    `spellcharges_1` = 0,
+    -- Spell::TakeCastItem spends one at the END of Spell::cast, after the
+    -- effects have been handled - so a cast interrupted by moving or by taking
+    -- damage costs nothing. With stackable > 1 it takes one off the stack
+    -- instead of tracking charges on the item.
+    `spellcharges_1` = -1,
     `spellcooldown_1` = -1,
     `spellcategory_1` = 0,
     `spellcategorycooldown_1` = -1,
-    `ScriptName`  = 'item_statbonus_grant',
+    -- No ItemScript, deliberately. item_statbonus_grant returns true from
+    -- OnUse, which stops HandleUseItemOpcode before the spell is ever cast -
+    -- and no cast means no SMSG_SPELL_START and so no cast bar. These grant
+    -- from a SpellScript on the spell itself instead; see
+    -- sql/28_custom_spells.sql.
+    `ScriptName`  = '',
     `bonding`     = 1,     -- bind on pickup, as the token is
     `stackable`   = 20,
     `MaxCount`    = 0,     -- no cap on how many may be carried
