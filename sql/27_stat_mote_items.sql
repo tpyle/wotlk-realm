@@ -44,7 +44,19 @@ CREATE TEMPORARY TABLE `tmp_mote` AS SELECT * FROM `item_template` WHERE `entry`
 UPDATE `tmp_mote` SET
     `entry`       = @MOTE,
     `name`        = 'Mote of Vigour',
-    `description` = 'It wants to be part of something that moves.',
+    -- The tooltip's own "Use:" line cannot say this, so the description does.
+    --
+    -- That line is built by the client from the DESCRIPTION of the item's
+    -- spell, out of its own Spell.dbc. An empty description does not give a
+    -- blank line, it removes the line altogether - so there is no way to tell
+    -- from the tooltip that the thing is usable at all. And no stock spell
+    -- describes a permanent +1 stamina: of the 149 whose description even
+    -- mentions Stamina, every one resolves $s1 from its own effect values and
+    -- would print somebody else's number.
+    --
+    -- description is the one piece of tooltip text that is ours, server-side,
+    -- with no client patch and no borrowed wording.
+    `description` = 'Use: Permanently increases your Stamina by 1. It wants to be part of something that moves.',
     `Quality`     = 2,     -- uncommon; it is a small, ordinary gain
     `startquest`  = 0,     -- the point of this one: no quest to collide with
     `spellid_1`      = @SPELL,

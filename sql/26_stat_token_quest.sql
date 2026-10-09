@@ -80,7 +80,16 @@ SET @BROKER := 90001;
 -- The ItemScript below intercepts the use and returns true, so the cast never
 -- happens and 56894 never summons what it would normally summon. Nothing has
 -- to be added to the client's Spell.dbc and no patch has to be shipped.
-SET @SPELL  := 56894;
+-- 5735 'REUSE' and not 56894, which was here first.
+--
+-- Both are doorbells and neither is ever cast, but the client builds the
+-- tooltip's "Use:" line from the spell's DESCRIPTION - and 56894 has one, so
+-- the fragment was offering to "Communicate through the spirit world to
+-- request an audience with a Darkmoon Fortune Teller". 5735 is one of
+-- Blizzard's own placeholders and has no description, which removes the line
+-- rather than printing something untrue. What the item does is said in its own
+-- description field instead, which is ours.
+SET @SPELL  := 5735;
 
 DELETE FROM `spell_dbc` WHERE `ID` = 900000;
 
@@ -90,7 +99,7 @@ CREATE TEMPORARY TABLE `tmp_item` AS SELECT * FROM `item_template` WHERE `entry`
 UPDATE `tmp_item` SET
     `entry`       = @ITEM,
     `name`        = 'Fragment of Power',
-    `description` = 'Something is listening on the other side of it.',
+    `description` = 'Something is listening on the other side of it.',   -- see @FOCUS for the usable half
     `startquest`  = @QUEST,
     -- No use effect on this one, because the client will not give it one.
     --
@@ -143,6 +152,10 @@ CREATE TEMPORARY TABLE `tmp_focus` AS SELECT * FROM `item_template` WHERE `entry
 UPDATE `tmp_focus` SET
     `entry`       = @FOCUS,
     `startquest`  = 0,
+    -- Says what the tooltip's "Use:" line cannot: that line comes from the
+    -- spell's description in the client's own Spell.dbc, and the doorbell spell
+    -- deliberately has none.
+    `description` = 'Use: Calls the Echo of Azeroth to you. Something is listening on the other side of it.',
     -- A doorbell, nothing more. 56894 is the spell stock item 42922 uses; it
     -- is here so the client draws a Use: line and sends CMSG_USE_ITEM at all,
     -- which it decides by itself out of its own Spell.dbc. The ItemScript

@@ -72,7 +72,7 @@ it works around is entirely client-side.
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
 | `tools/` | The DBC generators, the MPQ packer, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc rows for custom items) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |
