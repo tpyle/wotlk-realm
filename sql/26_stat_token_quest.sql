@@ -1,6 +1,12 @@
 -- ---------------------------------------------------------------------------
 -- Earning a stat point: a Fragment of Power and the Echo who takes it
 --
+-- SET ASIDE FOR NOW. StatBonus.Quest.Enable = 0 in the realm config, because
+-- the motes in sql/27 turned out to be the same reward without the three
+-- clicks, and they are what bosses drop instead. Everything here is left in
+-- the database exactly as it was: no broker is summoned and no bonus is paid
+-- while the flag is off, and turning it back on restores the chain.
+--
 -- A boss hands every member of the killing party a Fragment of Power. Using
 -- the fragment starts a repeatable quest and calls the Echo of Azeroth, who
 -- takes it and grants one bonus rolled from a pool. The fragment can call the

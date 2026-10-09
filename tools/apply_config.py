@@ -231,13 +231,15 @@ SETTINGS = {
         # its own ceiling - 1000 here would be eleven times normal speed. 100
         # is at most double, which is a mount's worth and plenty for a reward.
         "StatBonus.SpeedLimit": "100",
-        # Earning them: Bazil Thredd (1716) hands every member of the killing
-        # party a Spoils of the Stockade (90001), which starts repeatable quest
-        # 90001 and calls the Quartermaster of Spoils (90001) to take it. What
-        # the turn-in grants comes from statbonus_quest_reward, so the pool is
-        # retuned with an UPDATE rather than a rebuild.
-        "StatBonus.QuestRewards": "1",
-        "StatBonus.Token.Item": "90001",
+        # Earning them, as of now: the final boss of a dungeon drops one of the
+        # five motes (90003-90007), each a +1 to one primary stat used straight
+        # from the bag. One roll picks one mote, so the chances below are the
+        # chance of A mote and not of each - adding a sixth would change what
+        # drops, not how often.
+        #
+        # The chances are the ones the quest fragment had, kept deliberately:
+        # the motes replace it as the thing bosses drop, at the same rate.
+        "StatBonus.Token.Items": "90003,90004,90005,90006,90007",
         "StatBonus.Token.Count": "1",
         "StatBonus.Token.Creatures": "",
         "StatBonus.Token.Chance": "100",
@@ -245,6 +247,13 @@ SETTINGS = {
         "StatBonus.Token.HeroicChance": "15",
         "StatBonus.Token.RaidChance": "0",
         "StatBonus.Token.SkipBots": "1",
+        # The quest chain - the Fragment of Power, the Echo of Azeroth who
+        # takes it, and the turn-in - set aside for now in favour of the motes,
+        # which are the same reward without the three clicks. Everything it
+        # needs is still in the database, so this is the only line to change to
+        # bring it back.
+        "StatBonus.Quest.Enable": "0",
+        "StatBonus.QuestRewards": "1",
         "StatBonus.Broker.Entry": "90001",
         "StatBonus.Broker.DespawnSeconds": "300",
     },

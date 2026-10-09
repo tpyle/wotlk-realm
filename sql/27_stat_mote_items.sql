@@ -5,6 +5,12 @@
 -- no Echo to summon, no turn-in. Right-click a mote and the bonus is yours,
 -- and the mote is spent. One per primary stat.
 --
+-- These are now what a dungeon boss drops, in place of the fragment, at the
+-- rate the fragment had: 10% of a normal final boss, 15% of a heroic one, per
+-- player. ONE ROLL PICKS ONE MOTE, so five items behind that roll mean five
+-- possible motes and not five times the loot. Which boss and how often is
+-- StatBonus.Token.* in the module config, not anything here.
+--
 --   90003  Mote of Vigour    stamina     Greater Nether Essence  icon
 --   90004  Mote of Might     strength    Greater Eternal Essence
 --   90005  Mote of Grace     agility     Greater Astral Essence
@@ -67,7 +73,9 @@ UPDATE `tmp_mote` SET
     -- sql/28_custom_spells.sql.
     `ScriptName`  = '',
     `bonding`     = 1,     -- bind on pickup, as the token is
-    `stackable`   = 20,
+    -- 32 to a stack. They drop from dungeon bosses now, so a stack is what
+    -- accumulates between the times anybody sits down to spend them.
+    `stackable`   = 32,
     `MaxCount`    = 0,     -- no cap on how many may be carried
     `VerifiedBuild` = 0;
 
