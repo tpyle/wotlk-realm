@@ -1,5 +1,6 @@
--- Restores the engineering quests to the single exclusive group they shipped
--- with, so Gnomish and Goblin are once again one or the other.
+-- Restores the engineering and blacksmithing quests to the single exclusive
+-- groups they shipped with, so Gnomish and Goblin are once again one or the
+-- other, and so are Armorsmith and Weaponsmith.
 
 UPDATE quest_template_addon a
 JOIN quest_exclusive_group_backup b ON b.ID = a.ID
