@@ -20,11 +20,18 @@ and right-clicks into nothing. This puts the same rows in the other place.
 What it ships, and what it does not
 -----------------------------------
 
-Only ids in SHIP_RANGE, which is reserved for exactly this. That restraint is
-the point: 4492 of the 4517 rows in spell_dbc exist only server-side, and six
-stock items point spellid_1 at spells named, literally, '... serverside spell'.
-A rule like "ship every spell an item references" would hand the client spells
-that were deliberately kept from it.
+Only ids in SHIP_RANGE, which is reserved for exactly this, plus the handful
+named in SHIP_OVERRIDES. That restraint is the point: 4492 of the 4517 rows in
+spell_dbc exist only server-side, and six stock items point spellid_1 at spells
+named, literally, '... serverside spell'. A rule like "ship every spell an item
+references" would hand the client spells that were deliberately kept from it,
+and "ship every row that shares an id with the stock file" would be worse
+still.
+
+SHIP_OVERRIDES is for the other case: a stock spell whose own data is wrong,
+where the server already reads the correction out of spell_dbc and the client
+has to be told the same thing. Those rows do not add a record; their numeric
+fields are written over the stock row in place.
 
 The base is the stock Spell.dbc, which is read and never written. Unlike
 Item.dbc there is no reason to put our rows in the server's copy - the server
@@ -62,6 +69,15 @@ PACKER = ROOT / "tools/mpq_pack"
 # sql/28_custom_spells.sql, which is also where the convention
 # "spell = item entry + 100" is written down.
 SHIP_RANGE = (90100, 90199)
+
+# Stock spells whose `spell_dbc` row is a CORRECTION to ship, not a
+# server-side overlay to keep back. Listed one by one on purpose: most rows in
+# that table share an id with the stock file deliberately and must never reach
+# the client, so "ship every row that overlaps" would be wrong. These two are
+# the language spells whose EffectMiscValue_1 says Common when every other file
+# says Demonic and Kalimag - see sql/29_language_spells.sql, which generates
+# the rows, and tools/gen_language_spells.py, which explains why.
+SHIP_OVERRIDES = {815, 817}
 
 FIELDS = 234        # a file of any other width is not the Spell.dbc this was
 ROW_SIZE = 936      # written for, so stop rather than corrupt it
@@ -165,6 +181,68 @@ def to_ship(cols):
     return rows
 
 
+def to_override(cols):
+    """The `spell_dbc` rows that correct a stock row, read from the same table
+    the server overrides from, so the client's copy and the server's cannot
+    disagree about what a spell does."""
+    if not SHIP_OVERRIDES:
+        return []
+
+    names = ", ".join(f"`{name}`" for name, _ in cols)
+    ids = ", ".join(str(spell) for spell in sorted(SHIP_OVERRIDES))
+    rows = sql(f"SELECT {names} FROM `spell_dbc` WHERE `ID` IN ({ids}) ORDER BY `ID`")
+
+    missing = SHIP_OVERRIDES - {int(row[0]) for row in rows}
+    if missing:
+        sys.exit(f"no spell_dbc row for {sorted(missing)}, which SHIP_OVERRIDES says to correct; "
+                 "apply sql/29_language_spells.sql first")
+    return rows
+
+
+def apply_overrides(body, cols, rows, have):
+    """Write each override row's numeric fields over the stock row in place.
+
+    Only the numeric fields, which is the same rule the server follows: its
+    loader treats an empty string column as "not overridden" and keeps the
+    file's own text, and these rows carry no text.
+    """
+    index = {struct.unpack_from("<I", body, i * ROW_SIZE)[0]: i
+             for i in range(len(body) // ROW_SIZE)}
+
+    for row in rows:
+        spell = int(row[0])
+        if spell not in have:
+            sys.exit(f"spell {spell} is in SHIP_OVERRIDES but not in the stock Spell.dbc - it is a "
+                     f"new spell, so it belongs in {SHIP_RANGE[0]}-{SHIP_RANGE[1]} instead")
+
+        at = index[spell] * ROW_SIZE
+        changed = []
+
+        for i, ((name, data_type), raw) in enumerate(zip(cols, row)):
+            kind = kind_of(data_type)
+
+            if kind == "s":
+                if raw not in ("NULL", ""):
+                    sys.exit(f"spell {spell} column {name} carries text ({raw!r}); overriding a stock "
+                             "row's strings is not implemented, and the server would keep the file's "
+                             "text anyway")
+                continue
+            if raw in ("NULL", ""):
+                continue
+
+            if kind == "f":
+                value = struct.unpack("<I", struct.pack("<f", float(raw)))[0]
+            else:
+                value = int(raw) & 0xFFFFFFFF
+
+            before = struct.unpack_from("<I", body, at + i * 4)[0]
+            if before != value:
+                changed.append(f"{name} {before} -> {value}")
+            struct.pack_into("<I", body, at + i * 4, value)
+
+        print(f"  ~ {spell:>7}  {', '.join(changed) if changed else 'already identical'}")
+
+
 def check_tooltips(spells):
     """Does each description's number match what the item actually grants?
 
@@ -207,6 +285,7 @@ def main():
     dbc = read_dbc(SOURCE)
     have = existing_ids(dbc)
     rows = to_ship(cols)
+    overrides = to_override(cols)
 
     if not rows:
         sys.exit(f"no spell_dbc rows in {SHIP_RANGE[0]}-{SHIP_RANGE[1]}; "
@@ -217,8 +296,11 @@ def main():
         sys.exit(f"ids already in the stock Spell.dbc: {clash} - pick others, "
                  "overwriting a stock spell is not what this is for")
 
+    body = bytearray(dbc["body"])
+    apply_overrides(body, cols, overrides, have)
+
     # Strings go on the end of the existing block, so every stock offset in the
-    # body stays valid and the rows can be copied through untouched.
+    # body stays valid and the rest of the rows copy through untouched.
     strings = bytearray(dbc["strings"])
     added = bytearray()
     descriptions = {}
@@ -260,13 +342,14 @@ def main():
 
     out = bytearray()
     out += struct.pack("<4sIIII", b"WDBC", dbc["records"] + len(rows), FIELDS, ROW_SIZE, len(strings))
-    out += dbc["body"]
+    out += body
     out += added
     out += strings
 
     STAGING.parent.mkdir(parents=True, exist_ok=True)
     STAGING.write_bytes(out)
-    print(f"{STAGING}: {len(rows)} row(s) added, now {dbc['records'] + len(rows)} "
+    print(f"{STAGING}: {len(rows)} row(s) added, {len(overrides)} corrected, "
+          f"now {dbc['records'] + len(rows)} "
           f"({len(out) / 1e6:.1f} MB)")
 
     if not PACKER.exists():

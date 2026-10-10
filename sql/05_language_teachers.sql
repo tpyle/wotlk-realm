@@ -44,36 +44,54 @@ INSERT INTO `language_teacher` (CreatureEntry, Spell, Cost, RequiredFaction, Req
 -- The languages that are not tied to a playable race. Each one here has both a
 -- reputation faction and someone who can reasonably be called its leader.
 --
--- Only the two that WORK are here. See the note below on Demonic and Kalimag.
+-- Demonic and Kalimag need sql/29_language_spells.sql applied, and the client
+-- running the patch it ships with. See the note below.
 (26917,   814, 1000000, 1091, 7, 'Draconic', 'Alexstrasza, Wyrmrest Temple - Draconic (exalted with the Wyrmrest Accord)'),
 (31333,   814, 1000000, 1091, 7, 'Draconic', 'Alexstrasza, second spawn - Draconic (exalted with the Wyrmrest Accord)'),
-(32540,   816, 1000000, 1119, 7, 'Titan', 'Lillehoff, Sons of Hodir quartermaster - Titan (exalted with the Sons of Hodir)');
+(13278,   817, 1000000,  749, 7, 'Kalimag', 'Duke Hydraxis - Kalimag, the elemental tongue (exalted with the Hydraxian Waterlords)'),
+(32540,   816, 1000000, 1119, 7, 'Titan', 'Lillehoff, Sons of Hodir quartermaster - Titan (exalted with the Sons of Hodir)'),
+-- Demonic has no faction of its own that players can gain reputation with, so
+-- it is taught by the warlocks who actually speak it, gated on the city that
+-- tolerates them. One per side.
+(  461,   815, 1000000,   72, 7, 'Demonic', 'Demisette Cloyce, the Slaughtered Lamb in Stormwind - Demonic (exalted with Stormwind)'),
+( 3156,   815, 1000000,   76, 7, 'Demonic', 'Nartok, the Cleft of Shadow in Orgrimmar - Demonic (exalted with Orgrimmar)');
 
--- DEMONIC AND KALIMAG CANNOT BE TAUGHT, which cost a player 100g and broke
--- their chat language menu before it was understood. They were here because
--- Languages.dbc lists both with proper names, and because spells exist that
--- are NAMED after them - but a language spell teaches whatever its
--- EffectMiscValue says, and those two lie:
+-- DEMONIC AND KALIMAG ONCE COULD NOT BE TAUGHT. Selling one cost a player 100g
+-- and EMPTIED their chat language menu, and the reason is worth keeping: a
+-- language spell teaches whatever its EffectMiscValue says, and stock data has
+-- two that lie.
 --
 --     spell 815  'Language Demon Tongue'      -> misc  7  = COMMON
 --     spell 817  'Language Old Tongue (NYI)'  -> misc  7  = COMMON
 --
 -- 817 says so in its own name. Of the 14 spells in Spell.dbc carrying
--- SPELL_EFFECT_LANGUAGE (39), those are the only two whose effect disagrees
--- with their name, and nothing anywhere teaches language 8 (Demonic) or 12
--- (Kalimag). Zombie, Gnomish Binary and Goblin Binary are the same: named in
--- Languages.dbc, taught by nothing.
+-- SPELL_EFFECT_LANGUAGE (39), those were the only two whose effect disagreed
+-- with their name - and the client builds a character's language menu from the
+-- languages its known spells grant, so a Human who bought 'Demonic' ended up
+-- knowing Common from two different spells, which the stock game cannot
+-- produce. The menu went blank rather than wrong.
 --
--- The symptom was not a missing language but an EMPTY language menu. The
--- client builds that menu from the languages its known spells grant, and a
--- Human who buys 'Demonic' ends up knowing Common twice, from two different
--- spells - which is a state the stock game cannot produce.
+-- Both are back on sale because that one field is now corrected in both places
+-- it is read: sql/29_language_spells.sql overrides the server's copy through
+-- `spell_dbc`, and tools/gen_spell_dbc.py ships the same correction to the
+-- client in patch-W. Everything else about those languages was already
+-- complete and untouched - Languages.dbc names them, LanguageWords.dbc holds
+-- 126 Demonic and 122 Kalimag words, SkillLineAbility.dbc grants skills 139
+-- and 141, and the core's lang_description agreed all along.
+--
+-- A CLIENT WITHOUT PATCH-W STILL HAS THE OLD BUG. Garbling is done client
+-- side, so an unpatched client listening to Demonic is fine; one that LEARNS
+-- it gets the empty menu again.
 --
 -- SO: VERIFY A TEACHER'S SPELL BY ITS EFFECT, NOT BY ITS NAME. The check, on
 -- the client's own copy of the data the client reads:
 --
 --     Effect_1 == 39 (SPELL_EFFECT_LANGUAGE), and EffectMiscValue_1 is the
 --     Languages.dbc id it actually grants.
+--
+-- mod-languages now enforces exactly that at startup, dropping any row whose
+-- spell cannot do what its gossip option claims, and logging the language each
+-- surviving teacher genuinely teaches.
 --
 -- Not included, and why:
 --   Cult of the Damned   - every cultist in 3.3.5 is hostile and carries no
@@ -83,6 +101,10 @@ INSERT INTO `language_teacher` (CreatureEntry, Spell, Cost, RequiredFaction, Req
 --   Furbolg, Goblin,     - these have no language spell in 3.3.5. Timbermaw
 --   Ethereal, tuskarr      Hold and the Kalu'ak have reputation but there is
 --                          nothing to teach.
+--   Zombie, Gnomish      - named in Languages.dbc and given words in
+--   Binary, Goblin Binary  LanguageWords.dbc, but no spell anywhere grants
+--                          them, so unlike Demonic there is nothing to
+--                          correct - one would have to be invented.
 --   Draconic alternatives- Mordenai (22113) for Netherwing, or Soridormi for
 --                          the Scale of the Sands, if you would rather use
 --                          those factions.
