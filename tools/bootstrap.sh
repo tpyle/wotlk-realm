@@ -54,6 +54,7 @@ REPOS=(
   "server/modules/mod-aurastack|$GH/mod-aurastack|trunk|"
   "server/modules/mod-bigbags|$GH/mod-bigbags|trunk|"
   "server/modules/mod-transmog-collect|$GH/mod-transmog-collect|trunk|"
+  "server/modules/mod-lorecompanions|$GH/mod-lorecompanions|trunk|"
 
   # Used unmodified, straight from their own projects. Pinned by
   # bootstrap.lock rather than by a branch, because these are the ones most

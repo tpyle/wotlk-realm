@@ -51,7 +51,7 @@ them): [mod-transmog](https://github.com/azerothcore/mod-transmog),
 
 **Written here**, one repository each under
 [tpyle](https://github.com/tpyle), in the layout AzerothCore expects (clone
-into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags), [mod-transmog-collect](https://github.com/tpyle/mod-transmog-collect), [mod-openskills](https://github.com/tpyle/mod-openskills).
+into `modules/`): [mod-worldscale](https://github.com/tpyle/mod-worldscale), [mod-factionchoice](https://github.com/tpyle/mod-factionchoice), [mod-botlore](https://github.com/tpyle/mod-botlore), [mod-talentgrant](https://github.com/tpyle/mod-talentgrant), [mod-extraglyphs](https://github.com/tpyle/mod-extraglyphs), [mod-bankreagents](https://github.com/tpyle/mod-bankreagents), [mod-languages](https://github.com/tpyle/mod-languages), [mod-spellcooldowns](https://github.com/tpyle/mod-spellcooldowns), [mod-aurastack](https://github.com/tpyle/mod-aurastack), [mod-bigbags](https://github.com/tpyle/mod-bigbags), [mod-transmog-collect](https://github.com/tpyle/mod-transmog-collect), [mod-openskills](https://github.com/tpyle/mod-openskills), [mod-lorecompanions](https://github.com/tpyle/mod-lorecompanions).
 
 This repository is [tpyle/wotlk-realm](https://github.com/tpyle/wotlk-realm).
 
@@ -1453,6 +1453,40 @@ first 20 minutes after startup, which is not a fault.
 * Load the table in `OnStartup()`, not `OnAfterConfigLoad()` - the DBC and
   object stores do not exist at config-load time, so validating zone and
   creature ids there silently discards every row.
+
+### Lore companions: Jaina, Sylvanas and Alexstrasza
+
+`mod-lorecompanions` adds lore characters you can take questing as party
+members:
+
+    .companion list
+    .companion summon jaina        (or sylvanas, alexstrasza)
+    .companion dismiss [name]
+
+They are playerbots, but built-in ones. The module owns a hidden account
+(`LORECOMPANIONS`, created at startup with a password nobody is told) that
+holds one character per companion. Nothing logs them in except a summon, so
+they never wander the world, and a companion who isn't in her summoner's
+party is sent home. Each one is:
+
+| | spec | model |
+| --- | --- | --- |
+| Lady Jaina Proudmoore | frost mage | 30863, as in Theramore |
+| Lady Sylvanas Windrunner | marksman hunter | 28213, the Banshee Queen |
+| Alexstrasza the Life-Binder | fire mage | 28227, her elf form |
+
+The model replaces the character's *native* display, so it survives
+anything that restores a player's appearance. She is rebuilt for her party
+leader's level whenever that level changes: spells, her fixed spec, gear,
+glyphs, and a pet for Sylvanas. Her own XP is switched off. She takes her
+summoner's side through mod-factionchoice before logging in, so Sylvanas can
+walk through Stormwind with an Alliance party.
+
+Everything they say is written for them, in
+`server/modules/mod-lorecompanions/data/lines/` (328 lines, including
+exchanges between pairs of companions when both are in the party).
+mod-botlore recognises them and stays out of their mouths. The module's
+README covers the triggers, filters and how to add another companion.
 
 ### Buying languages from faction leaders
 
