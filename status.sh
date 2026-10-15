@@ -20,14 +20,26 @@ PREFIX=$(sed -n 's/^AiPlayerbot.RandomBotAccountPrefix[[:space:]]*=[[:space:]]*"
     /root/classic/run/etc/modules/playerbots.conf 2>/dev/null | tail -1)
 PREFIX="${PREFIX:-rndbot}"
 
+# mod-lorecompanions' characters are bots too, on an account of their own. Its
+# online flag stays set after a companion logs out (headless sessions never
+# clear it), so it would otherwise read as a person at character select.
+COMPANIONS=$(sed -n 's/^LoreCompanions.AccountName[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?.*/\1/p' \
+    /root/classic/run/etc/modules/mod_lorecompanions.conf 2>/dev/null | tail -1)
+COMPANIONS="${COMPANIONS:-LORECOMPANIONS}"
+
 online=$(mysql -uacore -pacore -h127.0.0.1 -N -B -e \
     "SELECT COUNT(*) FROM acore_characters.characters WHERE online = 1;" 2>/dev/null)
 bots=$(mysql -uacore -pacore -h127.0.0.1 -N -B -e \
     "SELECT COUNT(*) FROM acore_characters.characters c
      JOIN acore_auth.account a ON a.id = c.account
-     WHERE c.online = 1 AND a.username LIKE '${PREFIX}%';" 2>/dev/null)
+     WHERE c.online = 1 AND (a.username LIKE '${PREFIX}%' OR a.username = '${COMPANIONS}');" 2>/dev/null)
+companions=$(mysql -uacore -pacore -h127.0.0.1 -N -B -e \
+    "SELECT GROUP_CONCAT(c.name SEPARATOR ', ') FROM acore_characters.characters c
+     JOIN acore_auth.account a ON a.id = c.account
+     WHERE c.online = 1 AND a.username = '${COMPANIONS}';" 2>/dev/null)
 
 printf 'characters online: %s (of which bots: %s)\n' "${online:-?}" "${bots:-?}"
+[ -n "$companions" ] && [ "$companions" != "NULL" ] && printf 'companions out: %s\n' "$companions"
 
 # People, listed rather than counted, because the useful question before a
 # restart is not "how many" but "who, and are they really there".
@@ -43,7 +55,7 @@ mysql -uacore -pacore -h127.0.0.1 -N -B -e \
             IFNULL(GROUP_CONCAT(c.name SEPARATOR ', '), '(no character - at login, or a stale session)'))
      FROM acore_auth.account a
      LEFT JOIN acore_characters.characters c ON c.account = a.id AND c.online = 1
-     WHERE a.online = 1 AND a.username NOT LIKE '${PREFIX}%'
+     WHERE a.online = 1 AND a.username NOT LIKE '${PREFIX}%' AND a.username <> '${COMPANIONS}'
      GROUP BY a.username, a.last_ip;" 2>/dev/null | {
     found=""
     while IFS= read -r line; do

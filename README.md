@@ -38,7 +38,7 @@ it is not worth that.
 
 | repository | origin (pushed to) | upstream (merged from) | what is local |
 | --- | --- | --- | --- |
-| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations |
+| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations, hostile capitals and rest areas by the side a character plays for |
 | `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, a lot size of their own for greens, pricing for items with no vendor sell price, one log line demoted |
 | `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
