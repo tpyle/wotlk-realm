@@ -1472,13 +1472,13 @@ party is sent home. Each one is:
 | | spec | model |
 | --- | --- | --- |
 | Lady Jaina Proudmoore | frost mage | 30863, as in Theramore |
-| Lady Sylvanas Windrunner | marksman hunter | 28213, the Banshee Queen |
+| Lady Sylvanas Windrunner | marksman hunter, with a Vampiric Duskbat | 28213, the Banshee Queen |
 | Alexstrasza the Life-Binder | fire mage | 28227, her elf form |
 
 The model replaces the character's *native* display, so it survives
 anything that restores a player's appearance. She is rebuilt for her party
 leader's level whenever that level changes: spells, her fixed spec, gear,
-glyphs, and a pet for Sylvanas. Her own XP is switched off. She takes her
+glyphs, and her bat for Sylvanas. Her own XP is switched off. She takes her
 summoner's side through mod-factionchoice before logging in, so Sylvanas can
 walk through Stormwind with an Alliance party.
 
