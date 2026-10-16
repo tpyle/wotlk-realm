@@ -1454,13 +1454,14 @@ first 20 minutes after startup, which is not a fault.
   object stores do not exist at config-load time, so validating zone and
   creature ids there silently discards every row.
 
-### Lore companions: Jaina, Sylvanas, Alexstrasza, Moira, Liadrin and Tyrande
+### Lore companions
 
 `mod-lorecompanions` adds lore characters you can take questing as party
 members:
 
     .companion list
-    .companion summon jaina        (or sylvanas, alexstrasza, moira, liadrin, tyrande)
+    .companion summon jaina        (or sylvanas, alexstrasza, moira, liadrin, tyrande,
+                                    arthas, thrall, illidan)
     .companion dismiss [name]
 
 They are playerbots, but built-in ones. The module owns a hidden account
@@ -1477,6 +1478,9 @@ party is sent home. Each one is:
 | Princess Moira Bronzebeard | shadow priest | 8705, as in Blackrock Depths |
 | Lady Liadrin | protection paladin (tank) | 16820, as in Silvermoon |
 | Tyrande Whisperwind | holy priest (healer) | 7274, as in Darnassus |
+| Prince Arthas Menethil | retribution paladin | 24949, the prince before his fall |
+| Thrall | enhancement shaman | 4527, the Warchief in Orgrimmar |
+| Illidan Stormrage | combat rogue | 21135, the Betrayer, scaled to about a night elf |
 
 The model replaces the character's *native* display, so it survives
 anything that restores a player's appearance. She is rebuilt for her party
@@ -1486,7 +1490,7 @@ summoner's side through mod-factionchoice before logging in, so Sylvanas can
 walk through Stormwind with an Alliance party.
 
 Everything they say is written for them, in
-`server/modules/mod-lorecompanions/data/lines/` (642 lines, including
+`server/modules/mod-lorecompanions/data/lines/` (957 lines, including
 exchanges between pairs of companions when both are in the party).
 mod-botlore recognises them and stays out of their mouths. The module's
 README covers the triggers, filters and how to add another companion.
