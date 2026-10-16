@@ -150,6 +150,13 @@ SETTINGS = {
         # and low-level quests reported to the client as -1 so they render at the
         # player's level instead of grey
         "WorldScale.ScaleQuests": "1",
+        # Each expansion's content stops paying experience at its own cap -
+        # the old world at 60, Outland at 70, Northrend at 80 - so scaling
+        # makes old zones worth doing without making them a way past the cap.
+        "WorldScale.ContentXPCap": "1",
+        "WorldScale.ContentXPCap.Classic": "60",
+        "WorldScale.ContentXPCap.TBC": "70",
+        "WorldScale.ContentXPCap.WotLK": "80",
     },
     "modules/mod_factionchoice.conf": {
         "FactionChoice.Enable": "1",
