@@ -1,4 +1,4 @@
-# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-10-16 17:05:13 UTC
+# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-10-16 20:06:48 UTC
 server	435de9136a44c82fb955f96028db9862f7670d44
 server/modules/mod-ah-bot	9911a91bd1b1569ee8c118f48207800007d91c39
 server/modules/mod-playerbots	ddc931f1daf766666bcd7a018eefd5775d6ce514
@@ -14,7 +14,7 @@ server/modules/mod-spellcooldowns	5cc07196aa415378b77c505dc27926f2da0fe340
 server/modules/mod-aurastack	48899a66fcbe1d7b78b1f8312f159c3c3257ea20
 server/modules/mod-bigbags	ec10a85d5df1dbeea747539f9e748a54ac5397a6
 server/modules/mod-transmog-collect	139d2950ebe606bf24a46c52643b1b8697a307a9
-server/modules/mod-lorecompanions	80236548b726f39f3aa058a56faa6a54fa627eed
+server/modules/mod-lorecompanions	95eed1dcf3de8747c3cf9bb46158e6031c074cb0
 server/modules/mod-transmog	0d85cbc53d63ce2df8527169ce6ae47f5f6f6ba8
 server/modules/mod-aoe-loot	3d1466e122f2d43addb10e64b35e01025a214334
 server/modules/mod-worgoblin	818ab38c0b2d99f3c6faf634f21d1e8c6c9dee1a
