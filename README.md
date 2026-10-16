@@ -1461,7 +1461,7 @@ members:
 
     .companion list
     .companion summon jaina        (or sylvanas, alexstrasza, moira, liadrin, tyrande,
-                                    arthas, thrall, illidan)
+                                    arthas, thrall, illidan, whitemane, paletress)
     .companion dismiss [name]
 
 They are playerbots, but built-in ones. The module owns a hidden account
@@ -1481,6 +1481,8 @@ party is sent home. Each one is:
 | Prince Arthas Menethil | retribution paladin | 24949, the prince before his fall |
 | Thrall | enhancement shaman | 4527, the Warchief in Orgrimmar |
 | Illidan Stormrage | combat rogue | 21135, the Betrayer, scaled to about a night elf |
+| High Inquisitor Whitemane | discipline priest | 2043, as in the Scarlet Monastery |
+| Argent Confessor Paletress | holy priest | 29083, as at the Argent Tournament |
 
 The model replaces the character's *native* display, so it survives
 anything that restores a player's appearance. She is rebuilt for her party
@@ -1490,7 +1492,7 @@ summoner's side through mod-factionchoice before logging in, so Sylvanas can
 walk through Stormwind with an Alliance party.
 
 Everything they say is written for them, in
-`server/modules/mod-lorecompanions/data/lines/` (957 lines, including
+`server/modules/mod-lorecompanions/data/lines/` (1153 lines, including
 exchanges between pairs of companions when both are in the party).
 mod-botlore recognises them and stays out of their mouths. The module's
 README covers the triggers, filters and how to add another companion.
