@@ -5,9 +5,9 @@
 -- no Echo to summon, no turn-in. Right-click a mote and the bonus is yours,
 -- and the mote is spent. One per primary stat.
 --
--- These are now what a dungeon boss drops, in place of the fragment, at the
--- rate the fragment had: 10% of a normal final boss, 15% of a heroic one, per
--- player. ONE ROLL PICKS ONE MOTE, so five items behind that roll mean five
+-- These are now what a dungeon boss drops, in place of the fragment, at
+-- double the rate the fragment had: 20% of a normal final boss, 30% of a
+-- heroic one, per player, and 1% off any other mob worth killing. ONE ROLL PICKS ONE MOTE, so five items behind that roll mean five
 -- possible motes and not five times the loot. Which boss and how often is
 -- StatBonus.Token.* in the module config, not anything here.
 --

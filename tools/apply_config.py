@@ -244,25 +244,21 @@ SETTINGS = {
         # chance of A mote and not of each - adding a sixth would change what
         # drops, not how often.
         #
-        # The chances are the ones the quest fragment had, kept deliberately:
-        # the motes replace it as the thing bosses drop, at the same rate.
+        # Double what the quest fragment had: 20% off the final boss of a
+        # normal dungeon, 30% off a heroic one. Raids stay at 0, which keeps
+        # Arthas out of it until asked otherwise.
         "StatBonus.Token.Items": "90003,90004,90005,90006,90007",
         "StatBonus.Token.Count": "1",
         "StatBonus.Token.Creatures": "",
         "StatBonus.Token.Chance": "100",
-        "StatBonus.Token.DungeonChance": "10",
-        "StatBonus.Token.HeroicChance": "15",
+        "StatBonus.Token.DungeonChance": "20",
+        "StatBonus.Token.HeroicChance": "30",
         "StatBonus.Token.RaidChance": "0",
-        # And a thin chance off anything else worth killing, so the world
-        # outside a dungeon is not empty of them: 0.1% is one mote per 1,000
-        # kills - a good evening's killing for one of them, which is a pleasant
-        # surprise rather than a source. Bots are skipped, so the 500 of them
-        # killing all day add nothing.
-        #
-        # A percent, so this is a tenth of one percent and not a tenth of a
-        # percent of a percent. Fractions matter here: 1 would be a mote every
-        # few minutes.
-        "StatBonus.Token.AnyChance": "0.1",
+        # The blanket chance, rolled by whoever landed the killing blow on any
+        # mob that would give them experience. A percent: 1 is one mote per
+        # hundred kills. Bots are skipped, so the 500 of them killing all day
+        # add nothing.
+        "StatBonus.Token.AnyChance": "1",
         "StatBonus.Token.SkipBots": "1",
         # The quest chain - the Fragment of Power, the Echo of Azeroth who
         # takes it, and the turn-in - set aside for now in favour of the motes,
