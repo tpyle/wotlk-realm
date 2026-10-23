@@ -75,15 +75,15 @@ it works around is entirely client-side.
 | `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc and Spell.dbc rows for custom items: their icons and their `Use:` lines, both of which the client takes from its own copies and not from anything the server sends - plus the correction that makes spells 815 and 817 grant Demonic and Kalimag instead of Common) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
-| `ADMIN_CREDENTIALS.txt` | The game master account (root readable only) |
+| `ADMIN_CREDENTIALS.txt` | The game master account (readable by its owner only) |
 
 ## Running it
 
 ```bash
-/root/classic/start.sh     # starts MySQL, authserver, worldserver
-/root/classic/status.sh    # what is up, and how many bots are online
-/root/classic/stop.sh      # warn players, kick them, then graceful shutdown
-/root/classic/stop.sh --now  # skip the warning (nothing but bots online)
+/opt/wow/classic/start.sh     # starts MySQL, authserver, worldserver
+/opt/wow/classic/status.sh    # what is up, and how many bots are online
+/opt/wow/classic/stop.sh      # warn players, kick them, then graceful shutdown
+/opt/wow/classic/stop.sh --now  # skip the warning (nothing but bots online)
 ```
 
 `stop.sh` warns any real player, waits `STOP_GRACE` seconds (15 by default) and
@@ -108,7 +108,8 @@ Useful console commands: `account create <user> <pass>`,
 
 ## Connecting
 
-The client at `/root/chromie/ChromieCraft_3.3.5a` is already set up:
+The client (a ChromieCraft 3.3.5a install, run under Wine on a separate PC)
+is already set up:
 
 * `Data/patch-Z.MPQ` - the generated patch that unlocks every class on every
   race on the character creation screen.
@@ -129,26 +130,52 @@ dereference when the race is clicked, and two competing sets of goblin
 re-shipped from an archive that loads last, along with the goblin model folder
 for the same reason. That art is 82 MB of the 88 MB and never changes, which is
 why nothing small should live in there with it.
-* `Data/enUS/realmlist.wtf` - now reads `set realmlist 127.0.0.1`. The original
+* `Data/enUS/realmlist.wtf` - now reads `set realmlist wow.thomaspyle.com`. The original
   (which pointed at chromiecraft.com) is kept next to it as
   `realmlist.wtf.orig`.
 
 Log in with the game master account in `ADMIN_CREDENTIALS.txt` (the file is
-readable by root only). Change it with `account set password admin <new> <new>`
+readable by the `wow` user only). Change it with `account set password admin <new> <new>`
 on the world console, and create normal accounts with
 `account create <user> <pass>`.
 
 ## Playing from the internet
 
-The server is reachable from outside. The realm row hands each client an
-address based on where it connects from, so both work at once:
+The server runs as the `wow` user in `/opt/wow/classic`, on a home connection
+behind NAT: the machine is `192.168.1.28` (a DHCP reservation on the router)
+and the public IPv4 address is **dynamic**. Players therefore connect by name,
+`wow.thomaspyle.com`, which is a CNAME to `iv.thomaspyle.com` (Route 53, TTL
+300); keeping `iv` pointed at the current address is what follows the IP
+around.
+
+The realm row (`acore_auth.realmlist`) carries the name, not an address -
+`address = 'wow.thomaspyle.com'` - and the authserver resolves it again every
+`RealmsStateUpdateDelay` (20s), so a new public IP needs no restart and no
+database change. It hands each client an address based on where it connects
+from:
 
 | Client | Realm address it is given |
 | --- | --- |
 | On this machine (`127.0.0.1`) | `127.0.0.1:8085` |
-| Anywhere else | `5.161.99.58:8085` |
+| From `192.168.1.0/24` (`localAddress`) | `192.168.1.28:8085` |
+| Anywhere else | whatever `wow.thomaspyle.com` resolves to, port 8085 |
 
-**Ports to open on the external firewall** (inbound, TCP, IPv4):
+A PC on the home network that uses the public name does *not* fall in the
+second row: the router hairpins the connection and rewrites its source to the
+public IP, so it is treated as "anywhere else" - which works, because the
+router forwards it back in. Setting `realmlist 192.168.1.28` on a home PC
+skips the router entirely.
+
+**After the IP changes, stale DNS is the failure to look for.** When the
+server moved here, both ends kept the old record from systemd-resolved's cache
+(the old one had a long TTL): the client PC sent its logon to the old machine,
+and the authserver here would have handed out the old address as the realm.
+The tell is that `dig`/`nslookup` show the new address while
+`getent ahostsv4 wow.thomaspyle.com` - what Wine and the authserver actually
+use - shows the old one. `resolvectl flush-caches` fixes it on either side;
+with the 300s TTL it now also expires on its own within five minutes.
+
+**Ports to forward on the router** (inbound, TCP, IPv4, to `192.168.1.28`):
 
 | Port | Service | Needed |
 | --- | --- | --- |
@@ -162,7 +189,7 @@ only, SOAP (7878) is off (`SOAP.Enabled = 0`) and the remote access console
 Other players put this in their own `Data/enUS/realmlist.wtf`:
 
 ```
-set realmlist 5.161.99.58
+set realmlist wow.thomaspyle.com
 ```
 
 They also need `patch-Z.MPQ`, `patch-Y.MPQ`, `patch-X.MPQ` and `patch-A.MPQ`
@@ -182,7 +209,7 @@ realm list request) and prints what the client is told, which is the quickest
 way to check the server is reachable and an account works:
 
 ```bash
-python3 tools/check_login.py 5.161.99.58 <account> <password>
+python3 tools/check_login.py wow.thomaspyle.com <account> <password>
 ```
 
 Because the server is public: the game master password was rotated away from
@@ -2739,29 +2766,29 @@ price, which is a different auction house.
 ## Rebuilding and re-applying
 
 ```bash
-/root/classic/stop.sh          # stop before compiling, not just before installing:
+/opt/wow/classic/stop.sh       # stop before compiling, not just before installing:
                                # a build killed mid-write once left a truncated
                                # precompiled header and GCC then died with an
                                # internal compiler error on unrelated files
                                # (delete worldserver.dir/cmake_pch.hxx.gch to fix).
                                # Installing while running can also silently skip
                                # the binary with "-- Up-to-date".
-cd /root/classic/build
-cmake ../server -DCMAKE_INSTALL_PREFIX=/root/classic/run \
+cd /opt/wow/classic/build
+cmake ../server -DCMAKE_INSTALL_PREFIX=/opt/wow/classic/run \
       -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSCRIPTS=static -DMODULES=static \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-make -j1 && make install      # -j1 if cmake reported a new module, see below
+make -j56 && make install     # this machine has the cores and memory for it, see below
 # Do NOT compare md5sums of the two binaries: `make install` rewrites the
-# RUNPATH (from a padded placeholder to /root/classic/run/lib), so the hashes
+# RUNPATH (from a padded placeholder to /opt/wow/classic/run/lib), so the hashes
 # differ even on a good install. Check size + mtime instead, or look for a
 # symbol you just added:
 #   nm -C run/bin/worldserver | grep AuraStack
 
-python3 /root/classic/tools/apply_config.py          # config (make install only refreshes *.conf.dist)
-python3 /root/classic/tools/gen_all_classes_dbc.py   # re-patch the dbc files and the MPQ staging dir
-/root/classic/tools/mpq_pack /root/classic/client-patch/patch-Z.MPQ \
-                             /root/classic/client-patch/staging
+python3 /opt/wow/classic/tools/apply_config.py          # config (make install only refreshes *.conf.dist)
+python3 /opt/wow/classic/tools/gen_all_classes_dbc.py   # re-patch the dbc files and the MPQ staging dir
+/opt/wow/classic/tools/mpq_pack /opt/wow/classic/client-patch/patch-Z.MPQ \
+                             /opt/wow/classic/client-patch/staging
 ```
 
 **A warning about `apply_config.py`, learned the hard way.** Its managed
@@ -2788,7 +2815,19 @@ GCC 14 is used on purpose: Ubuntu 26.04's default GCC 15 is newer than this
 source tree expects (its `c++` also has no `libstdc++` development files
 installed).
 
-Two things about memory, learned the hard way on this 15 GB machine:
+The install prefix is compiled in, not just used by `make install`: the
+binaries look for their configuration - including every module's
+`etc/modules/*.conf`, which no `-c` switch redirects - and for the SQL update
+tree under the paths CMake was given. Moving the tree means re-running `cmake`
+with the new prefix and rebuilding; the binaries from `/root/classic` started
+here with every module on its built-in defaults.
+
+The server moved to its current machine (56 cores, 750 GB of memory) in
+October 2026; a full rebuild there takes about ten minutes at `-j56`. The
+memory notes below are from the 15 GB machine it was built on before, and
+only matter again on a machine that small.
+
+Two things about memory, learned the hard way on the 15 GB machine:
 
 * `make -j4` gets the build killed. `-j2` is the practical limit for ordinary
   changes, and the final `worldserver` link (the binary is ~2.3 GB with debug
@@ -2842,12 +2881,12 @@ Two things about memory, learned the hard way on this 15 GB machine:
   If one was written around the time of the kill, delete it - a truncated PCH
   makes GCC die with an internal compiler error on unrelated files. Timestamps
   older than the killed build mean they are intact and can be kept.
-* An 8 GB swap file was added (`/swapfile`) to get through that link. It is
-  active now but not in `/etc/fstab`, so after a reboot re-enable it with
-  `swapon /swapfile` before rebuilding.
-* The build is configured with `-Wl,--no-keep-memory -Wl,--reduce-memory-overheads`
+* An 8 GB swap file was added (`/swapfile`) to get through that link.
+* The build was configured with `-Wl,--no-keep-memory -Wl,--reduce-memory-overheads`
   and `-Wl,--strip-debug` for the same reason (the binary went from 2.3 GB to
-  67 MB).
+  67 MB). The current build leaves those out, so the installed `worldserver`
+  is ~2.5 GB with its debug info - which is what makes a crash backtrace
+  readable.
 * **Stop the server before `make install`.** With the old server still running,
   CMake decided the destination was `-- Up-to-date` and skipped copying the new
   `worldserver`, so a restart silently kept running the previous build. If
@@ -2867,8 +2906,8 @@ lost the race and exited, the world server completed the import).
 The custom SQL in `sql/` is idempotent and can be re-run at any time:
 
 ```bash
-mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/01_all_classes_all_races.sql
-mysql -uacore -pacore -h127.0.0.1 acore_world < /root/classic/sql/02_big_bags.sql
+mysql -uacore -pacore -h127.0.0.1 acore_world < /opt/wow/classic/sql/01_all_classes_all_races.sql
+mysql -uacore -pacore -h127.0.0.1 acore_world < /opt/wow/classic/sql/02_big_bags.sql
 ```
 
 ## Tests
@@ -2907,7 +2946,7 @@ Two ways to run them:
   fetches googletest and builds a `unit_tests` binary that links all of
   `game` and `modules`:
 
-      cmake /root/classic/server -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=/root/classic/run ...
+      cmake /opt/wow/classic/server -DBUILD_TESTING=ON -DCMAKE_INSTALL_PREFIX=/opt/wow/classic/run ...
       make unit_tests && ./src/test/unit_tests
 
   Keep `CMAKE_INSTALL_PREFIX` the same as the production tree: it lands in
@@ -2942,7 +2981,7 @@ A rebuild here takes tens of minutes to hours, and the obvious way to run one
 drops. `tools/bg.sh` runs it in a tmux session instead:
 
 ```
-tools/bg.sh start rebuild 'cd /root/classic/build && make -j2 game scripts modules'
+tools/bg.sh start rebuild 'cd /opt/wow/classic/build && make -j2 game scripts modules'
 tools/bg.sh status                  # running, or finished with its exit code
 tools/bg.sh log rebuild 40          # the output so far
 tmux attach -t acore-rebuild        # watch it happen (ctrl-b d to leave)
@@ -2979,7 +3018,7 @@ Now each appender carries the core's size cap as its sixth argument
 (`Appender.Server = 2,5,0,Server.log,w,52428800`: 50 MB for Server and
 Playerbots, 10 MB for Errors and Auth). Past the cap the core renames the
 file to `<name>.<timestamp>` and starts a fresh one, so the live file is
-always bounded; `tools/prune_logs.sh`, a daily root cron job (04:17), deletes
+always bounded; `tools/prune_logs.sh`, a daily cron job of the `wow` user (04:30), deletes
 those rotated copies after seven days, so the directory is bounded too.
 Worst case on disk is therefore about 8 × 50 MB plus the small ones. The
 caps are in `tools/apply_config.py` and survive `make install`.
@@ -3061,7 +3100,7 @@ Checked after the server came up with all 500 bots online:
 | Cross-faction options | all eight `AllowTwoSide.*` values are 1 in the running config |
 | Talent rate | `Rate.Talent = 3`, plus `.talents grant` per character |
 | Quest race gate | 0 of 9464 quests still race gated, 4919 original masks saved for revert |
-| Public login | `tools/check_login.py` completed a full SRP6 logon against `5.161.99.58:3724` and was told to use realm `5.161.99.58:8085`; the same check over loopback is told `127.0.0.1:8085` |
+| Public login | after the move: a Wine client logged on through `wow.thomaspyle.com:3724` (hairpinned by the router, arriving from the public IP) and then connected to the world server at the address the realm list resolved, port 8085. On the previous machine `tools/check_login.py` completed a full SRP6 logon against its public address, and over loopback is told `127.0.0.1:8085` |
 | Bots | 500/500 logged in |
 | Realm | `AzerothCore` at `127.0.0.1:8085`, game build 12340, ports 3724 and 8085 listening |
 | Load | `worldserver` ~4.6 GB RSS, ~2.4 of 4 cores, load average ~3 with 500 bots online |
