@@ -6,9 +6,9 @@ ReconcileFactionFlags and PinReactions, then Unit::GetFactionReactionTo, so the
 set of NPCs a cross-faction character cannot talk to can be worked out without
 a game client.
 """
-import struct, subprocess, sys
+import os, struct, subprocess, sys
 
-DBC = "/root/classic/run/data/dbc"
+DBC = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "run/data/dbc")
 
 VISIBLE, AT_WAR, HIDDEN, INVISIBLE_FORCED, PEACE_FORCED, INACTIVE = 1, 2, 4, 8, 16, 32
 FACTION_TEMPLATE_FLAG_ATTACK_PVP_ACTIVE_PLAYERS = 0x800

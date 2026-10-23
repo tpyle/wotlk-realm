@@ -31,7 +31,7 @@ race/class combinations first. The order in install_worgoblin_dbc.sh is
 therefore: classes, weapons, lockpicking, then this.
 
 Usage:
-  tools/gen_hunter_start_kits.py [--dbc-dir /root/classic/run/data/dbc]
+  tools/gen_hunter_start_kits.py [--dbc-dir run/data/dbc]
 """
 
 import argparse
@@ -111,7 +111,7 @@ def write_dbc(path, rows, fields, record_size, strings):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dbc-dir", default="/root/classic/run/data/dbc")
+    parser.add_argument("--dbc-dir", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "run/data/dbc"))
     args = parser.parse_args()
 
     path = os.path.join(args.dbc_dir, "CharStartOutfit.dbc")

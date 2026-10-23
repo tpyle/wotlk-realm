@@ -4,7 +4,9 @@
 #
 set -uo pipefail
 
-printf 'mysql        : %s\n' "$(mysqladmin --silent status >/dev/null 2>&1 && echo up || echo down)"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+printf 'mysql        : %s\n' "$(mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1 && echo up || echo down)"
 
 for session in acore-auth acore-world; do
     if tmux has-session -t "$session" 2>/dev/null; then
@@ -17,14 +19,14 @@ done
 # The bot account prefix is config, not a constant - read it rather than
 # write it in here, so renaming it there cannot turn 500 bots into people.
 PREFIX=$(sed -n 's/^AiPlayerbot.RandomBotAccountPrefix[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?.*/\1/p' \
-    /root/classic/run/etc/modules/playerbots.conf 2>/dev/null | tail -1)
+    $ROOT/run/etc/modules/playerbots.conf 2>/dev/null | tail -1)
 PREFIX="${PREFIX:-rndbot}"
 
 # mod-lorecompanions' characters are bots too, on an account of their own. Its
 # online flag stays set after a companion logs out (headless sessions never
 # clear it), so it would otherwise read as a person at character select.
 COMPANIONS=$(sed -n 's/^LoreCompanions.AccountName[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?.*/\1/p' \
-    /root/classic/run/etc/modules/mod_lorecompanions.conf 2>/dev/null | tail -1)
+    $ROOT/run/etc/modules/mod_lorecompanions.conf 2>/dev/null | tail -1)
 COMPANIONS="${COMPANIONS:-LORECOMPANIONS}"
 
 online=$(mysql -uacore -pacore -h127.0.0.1 -N -B -e \

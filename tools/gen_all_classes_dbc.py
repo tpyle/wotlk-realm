@@ -119,9 +119,9 @@ def build_char_start_outfit(source, races, classes):
 
 def main():
     parser = argparse.ArgumentParser()
-    parser.add_argument("--dbc-dir", default="/root/classic/run/data/dbc",
+    parser.add_argument("--dbc-dir", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "run/data/dbc"),
                         help="server side dbc directory (patched in place)")
-    parser.add_argument("--out-dir", default="/root/classic/client-patch/staging",
+    parser.add_argument("--out-dir", default=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "client-patch/staging"),
                         help="where to stage the files for the client patch MPQ")
     args = parser.parse_args()
 

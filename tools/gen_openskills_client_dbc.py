@@ -46,7 +46,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path("/root/classic")
+ROOT = Path(__file__).resolve().parent.parent
 # (source, staged name, the field to open, what to open it to)
 #
 # SkillRaceClassInfo takes 0xFFFFFFFF rather than 0, which is what

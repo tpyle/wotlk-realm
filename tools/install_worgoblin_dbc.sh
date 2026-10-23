@@ -33,7 +33,7 @@
 # run/data/dbc-before-worgoblin.tgz.
 set -euo pipefail
 
-ROOT=/root/classic
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC=$ROOT/server/modules/mod-worgoblin/data/patch/DBFilesClient
 DBC=$ROOT/run/data/dbc
 

@@ -16,6 +16,8 @@
 #
 set -uo pipefail
 
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
 GRACE="${STOP_GRACE:-15}"
 [ "${1:-}" = "--now" ] && GRACE=0
 
@@ -26,7 +28,7 @@ if tmux has-session -t acore-world 2>/dev/null; then
     # read from the playerbots config rather than written in here, so renaming
     # it there cannot quietly turn every bot into somebody worth waiting for.
     PREFIX=$(sed -n 's/^AiPlayerbot.RandomBotAccountPrefix[[:space:]]*=[[:space:]]*"\?\([^"]*\)"\?.*/\1/p' \
-        /root/classic/run/etc/modules/playerbots.conf | tail -1)
+        $ROOT/run/etc/modules/playerbots.conf | tail -1)
     PREFIX="${PREFIX:-rndbot}"
 
     # Sessions, not characters. A person sitting at character select or on the

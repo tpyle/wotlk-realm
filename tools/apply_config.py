@@ -12,9 +12,10 @@ import re
 import shutil
 import sys
 
-ETC = "/root/classic/run/etc"
-RUN = "/root/classic/run"
-LOGS = "/root/classic/logs"
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+ETC = os.path.join(ROOT, "run/etc")
+RUN = os.path.join(ROOT, "run")
+LOGS = os.path.join(ROOT, "logs")
 
 # file -> { config key: value }
 SETTINGS = {

@@ -8,21 +8,22 @@
 #
 set -euo pipefail
 
-BIN="/root/classic/run/bin"
-LOGS="/root/classic/logs"
+ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+BIN="$ROOT/run/bin"
+LOGS="$ROOT/logs"
 
 mkdir -p "$LOGS"
 
-if ! mysqladmin --silent status >/dev/null 2>&1; then
+if ! mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1; then
     echo "starting MySQL..."
-    service mysql start >/dev/null
+    sudo systemctl start mysql
     for _ in $(seq 1 60); do
-        mysqladmin --silent status >/dev/null 2>&1 && break
+        mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1 && break
         sleep 1
     done
 fi
 
-if ! mysqladmin --silent status >/dev/null 2>&1; then
+if ! mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1; then
     echo "MySQL did not come up - aborting" >&2
     exit 1
 fi

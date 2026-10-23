@@ -76,7 +76,7 @@ import subprocess
 import sys
 from pathlib import Path
 
-ROOT = Path("/root/classic")
+ROOT = Path(__file__).resolve().parent.parent
 SERVER_DBC = ROOT / "run/data/dbc/LFGDungeons.dbc"
 # Its own staging directory and its own archive, rather than riding along in
 # patch-Z.
