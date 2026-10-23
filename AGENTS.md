@@ -39,9 +39,8 @@ short list of rules and traps.
   can leave a truncated `.gch` that makes GCC crash on unrelated files.
 - GCC 14 (`gcc-14`/`g++-14`), not the system default. The exact cmake line
   is in README, "Rebuilding and re-applying".
-- This machine has 56 cores and 750 GB of memory: `make -j56` is fine,
-  including a full rebuild (about ten minutes) and the final link. The
-  `-j1`/`-j2` advice in README is from the old 15 GB machine.
+- This machine has 56 cores and 750 GB of memory: `make -j56`, including
+  a full rebuild (about ten minutes) and the final link.
 - Confirm an install with `nm -C run/bin/worldserver | grep <new symbol>`,
   never by comparing md5sums (install rewrites the RUNPATH).
 - Use `tools/bg.sh start <name> '<command>'` for anything long, so it survives

@@ -2778,7 +2778,7 @@ cmake ../server -DCMAKE_INSTALL_PREFIX=/opt/wow/classic/run \
       -DCMAKE_C_COMPILER=gcc-14 -DCMAKE_CXX_COMPILER=g++-14 \
       -DCMAKE_BUILD_TYPE=RelWithDebInfo -DSCRIPTS=static -DMODULES=static \
       -DCMAKE_C_COMPILER_LAUNCHER=ccache -DCMAKE_CXX_COMPILER_LAUNCHER=ccache
-make -j56 && make install     # this machine has the cores and memory for it, see below
+make -j56 && make install
 # Do NOT compare md5sums of the two binaries: `make install` rewrites the
 # RUNPATH (from a padded placeholder to /opt/wow/classic/run/lib), so the hashes
 # differ even on a good install. Check size + mtime instead, or look for a
@@ -2822,16 +2822,11 @@ tree under the paths CMake was given. Moving the tree means re-running `cmake`
 with the new prefix and rebuilding; the binaries from `/root/classic` started
 here with every module on its built-in defaults.
 
-The server moved to its current machine (56 cores, 750 GB of memory) in
-October 2026; a full rebuild there takes about ten minutes at `-j56`. The
-memory notes below are from the 15 GB machine it was built on before, and
-only matter again on a machine that small.
+The machine has 56 cores and 750 GB of memory, so `make -j56` is the right
+setting for everything, including the final `worldserver` link; a full rebuild
+takes about ten minutes. The installed `worldserver` is ~2.5 GB because it
+keeps its debug info, which is what makes a crash backtrace readable.
 
-Two things about memory, learned the hard way on the 15 GB machine:
-
-* `make -j4` gets the build killed. `-j2` is the practical limit for ordinary
-  changes, and the final `worldserver` link (the binary is ~2.3 GB with debug
-  info) wants a single job: `make -j1`.
 * **Adding a module recompiles the entire `modules` target - unless the compile
   cache has seen the files before.** The modules are not compiled "into" the
   core; with `MODULES=static` they are one static library (`libmodules.a`, 698
@@ -2842,51 +2837,21 @@ Two things about memory, learned the hard way on the 15 GB machine:
   command line of all 698 files and `make` recompiles every one of them even
   though 697 preprocess to exactly the same thing.
 
-  `ccache` (4.12, installed with `apt`) is set up for exactly that case. The
-  build is configured with `CMAKE_CXX_COMPILER_LAUNCHER=ccache` (that lands in
-  the make recipes, not in `flags.make`, so enabling it did not itself force a
-  rebuild - verified with `make -n game` reporting nothing to do), and
+  `ccache` is set up for exactly that case. The build is configured with
+  `CMAKE_CXX_COMPILER_LAUNCHER=ccache` (that lands in the make recipes, not in
+  `flags.make`, so enabling it does not itself force a rebuild), and
   `~/.config/ccache/ccache.conf` sets `ignore_options = -I*`: the key is the
   preprocessed source, which already reflects whatever the include path
   resolved, so a changed `-I` list is a hit and a changed header is a miss,
   which is the right answer for both. `max_size = 10G`. The cache fills as
-  files compile, so the first pass after enabling it (the mod-extraglyphs
-  build) paid full price for the modules and the core is seeded whenever it
-  next rebuilds; after that a module add/remove should be minutes of
-  preprocessing rather than 45 minutes of compiling. `ccache -s` shows the hit
-  rate, `ccache -z` resets the counters.
-
-* **When it does recompile everything, `-j1`.** Registering a new module
-  changes the module list, which recompiles the *entire* `modules` target -
-  including all of `mod-playerbots`, whose translation units are the heaviest
-  in the tree. `-j2` survived every header-only rebuild here but was
-  memory-killed at 82% during the mod-playerbots pass when `mod-aurastack` was
-  added, even with the swap file active and 13 GB reported available. `make -j1`
-  from the start is the safe choice when `cmake` reports a new entry under
-  "Modules configuration".
-* **The archive step is the memory peak, not the compiling.** The `modules`
-  objects total ~3.5 GB, so `ar` writes a 3.5 GB `libmodules.a` and that write
-  lands in the page cache. `mod-ah-bot`'s build was killed there even at `-j1`:
-  free memory was 4.6 GB with 9.5 GB already in `buff/cache`, and the watchdog
-  acts on *free*, not on the reclaimable `available` figure. Clearing the cache
-  first fixed it - `sync; echo 3 > /proc/sys/vm/drop_caches` took free from
-  4.6 GB to 13 GB, and the archive then completed with free bottoming out at
-  5.7 GB as cache climbed to 8.3 GB. Do that before resuming a link or archive
-  that has been killed once.
-* **`/tmp` is tmpfs, i.e. RAM** (7.7 GB). GCC writes its intermediate assembly
-  there, so scratch files left in `/tmp` are taken straight out of the build's
-  memory budget. Keep it clean.
+  files compile, so after one full build a module add/remove is mostly
+  preprocessing rather than compiling. `ccache -s` shows the hit rate,
+  `ccache -z` resets the counters.
 * After any killed build, check for a truncated precompiled header before
   resuming: `find build -name '*.gch' -printf '%TY-%Tm-%Td %TH:%TM %10s %p\n'`.
   If one was written around the time of the kill, delete it - a truncated PCH
   makes GCC die with an internal compiler error on unrelated files. Timestamps
   older than the killed build mean they are intact and can be kept.
-* An 8 GB swap file was added (`/swapfile`) to get through that link.
-* The build was configured with `-Wl,--no-keep-memory -Wl,--reduce-memory-overheads`
-  and `-Wl,--strip-debug` for the same reason (the binary went from 2.3 GB to
-  67 MB). The current build leaves those out, so the installed `worldserver`
-  is ~2.5 GB with its debug info - which is what makes a crash backtrace
-  readable.
 * **Stop the server before `make install`.** With the old server still running,
   CMake decided the destination was `-- Up-to-date` and skipped copying the new
   `worldserver`, so a restart silently kept running the previous build. If
@@ -2976,12 +2941,12 @@ them to pin down, and extracting a seam to test would be inventing one.
 
 ## Long jobs
 
-A rebuild here takes tens of minutes to hours, and the obvious way to run one
+A full rebuild takes about ten minutes, and the obvious way to run one
 - start it, watch it, wait - loses the job the moment the SSH connection
 drops. `tools/bg.sh` runs it in a tmux session instead:
 
 ```
-tools/bg.sh start rebuild 'cd /opt/wow/classic/build && make -j2 game scripts modules'
+tools/bg.sh start rebuild 'cd /opt/wow/classic/build && make -j56 game scripts modules'
 tools/bg.sh status                  # running, or finished with its exit code
 tools/bg.sh log rebuild 40          # the output so far
 tmux attach -t acore-rebuild        # watch it happen (ctrl-b d to leave)
