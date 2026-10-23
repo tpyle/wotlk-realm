@@ -12,8 +12,8 @@ DELETE FROM npc_text WHERE ID IN (90010, 90011);
 
 INSERT INTO npc_text (ID, text0_0, text0_1, Probability0) VALUES
 (90010,
- 'Azeroth is at war, and you have yet to take a side. Your people expect you to stand with them - but the choice is yours alone.$B$BWhich banner will you fight under?',
- 'Azeroth is at war, and you have yet to take a side. Your people expect you to stand with them - but the choice is yours alone.$B$BWhich banner will you fight under?',
+ 'Azeroth is at war, and you have yet to take a side. Your people expect you to stand with them - but the choice is yours alone.$B$BWhich banner will you fight under - if any?',
+ 'Azeroth is at war, and you have yet to take a side. Your people expect you to stand with them - but the choice is yours alone.$B$BWhich banner will you fight under - if any?',
  1),
 (90011,
  'Then your old home is no longer safe for you.$B$BWhere would you like to begin?',

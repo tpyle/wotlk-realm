@@ -38,7 +38,7 @@ it is not worth that.
 
 | repository | origin (pushed to) | upstream (merged from) | what is local |
 | --- | --- | --- | --- |
-| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations, hostile capitals, rest areas and flight mounts by the side a character plays for |
+| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations, hostile capitals, rest areas and flight masters by the side a character plays for, and for one that plays for neither |
 | `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, a lot size of their own for greens, pricing for items with no vendor sell price, one log line demoted |
 | `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
@@ -872,7 +872,7 @@ Three pieces:
 race.
 
 **On a character's first login** a window opens asking which side it will fight
-for: Alliance, Horde, or stay with its own people. Pick the side your race does
+for: Alliance, Horde, neither, or stay with its own people. Pick the side your race does
 not belong to and a second window asks *where* to begin, listing that side's
 starting zones - Northshire Valley, Coldridge Valley, Shadowglen and Ammen Vale
 for the Alliance; the Valley of Trials, Shadow Grave, Camp Narache and
@@ -897,6 +897,7 @@ Afterwards, or with `FactionChoice.PromptOnFirstLogin = 0`:
 ```
 .faction alliance     play this character on the Alliance side
 .faction horde        play this character on the Horde side
+.faction neutral      walk with neither side (see "Walking with neither side")
 .faction reset        go back to the race's own faction
 .faction status       show what is in effect
 .faction where        re-open the "where do I start" chooser
@@ -933,9 +934,10 @@ back.
 
 Everything else on this server is modules, data and DBC files, with one
 exception noted under "The first patch to mod-playerbots". The AzerothCore
-source itself is touched in nine places - five additive hooks, two one-line
-corrections, one script relaxation and one parameter added to an existing
-method - and **all of them have to be remembered on any upstream merge**,
+source itself is touched in the places below - additive hooks, one-line
+corrections, one script relaxation, one parameter added to an existing method
+and the side-played checks - and **all of them have to be remembered on any
+upstream merge**,
 because the modules that depend on them will not compile without them:
 
 | change | what it is for | documented under |
@@ -949,6 +951,7 @@ because the modules that depend on them will not compile without them:
 | `npc_professions.cpp` specialisation gossip | several profession specialisations per character | "More than one profession specialisation" |
 | `Player::DestroyItemCount` + the two `Spell` reagent sites | crafting from bank reagents | "Crafting from the bank" |
 | `AllCreatureScript::OnCreatureGetAggroRange` hook | aggro radius of scaled creatures | "Low level content that is still worth doing" |
+| capitals, inns and flight masters by the side played; `Player::IsUnaligned` and its call sites | switched and neutral characters | "Walking with neither side" |
 
 The five hooks are each one `virtual` with an empty body, a dispatcher and a
 call site (four also have an enabled-hook enum entry). The profession change is nine relaxed `if`
@@ -1131,6 +1134,85 @@ Two supporting changes come with it:
   quests were affected. The original values are saved in
   `quest_template_allowableraces_backup`; `sql/03_quests_any_race_revert.sql`
   puts them back.
+
+### Walking with neither side
+
+`.faction neutral`, or "I will walk with neither" in the first-login window,
+puts a character on no side at all: both sides' quest givers, vendors,
+trainers, flight masters and inns serve it; players and bots of both sides are
+friendly to it; and it takes no part in their war. Nothing on the client
+changes. `FactionChoice.AllowNeutral = 0` takes the option away.
+
+**Neutral is not a third team.** `TEAM_NEUTRAL` exists, but some 350 places in
+the core index two-entry arrays with `GetTeamId()` - battlegrounds,
+graveyards, taxi mounts, outdoor PvP - so a player who really had it would read
+past their ends. A neutral character keeps its race's team for all of that, and
+is made neutral in the two places where the world actually judges it:
+
+* **faction template 1665**, a stock template whose group is *Player* only: not
+  Alliance, not Horde. It is friendly to every player group and hostile to
+  monsters. The template masks therefore make it friendly to both sides'
+  players in both directions (it can group, heal and trade with anyone, and
+  nobody can attack it outside a duel or a free-for-all arena), monsters still
+  attack it, and the client works all of this out from its own copy of the same
+  file. `FactionChoice.Neutral.FactionTemplate` can name another, and is checked
+  at startup to be a player template outside both sides.
+* **reputations**, rebased onto a third baseline: for every faction, the
+  friendliest of the character's own race's, the Alliance's and the Horde's
+  starting rows (higher standing first, then not at war), each taken whole with
+  its flags. So both sides' cities are visible and not at war, and Honor Hold
+  and Thrallmar, or Kurenai and the Mag'har, are both there to earn.
+  Everything else - the per-login flag reconcile, `PushFactionFlags`, the pins,
+  `.faction reset` - works exactly as for a side switch.
+
+Quests need nothing more: `03_quests_any_race.sql` already removed the race
+gate, no quest-availability condition in the world database depends on team,
+and the reputation-gated ones follow the dual reputations. Quests that exist
+once per side (the 293 pairs in `player_factionchange_quests`) can be done
+twice. Quests that send you to kill the *other* side's NPCs, in Hillsbrad,
+Arathi or Ashenvale, cannot be done: to a neutral character those NPCs are
+friendly.
+
+The core recognises a neutral character by its template, through
+`Player::IsUnaligned()` (a player-group template outside both sides, so a mind
+control or disguise does not count). It is checked in four places:
+
+| where | what changes for an unaligned character |
+| --- | --- |
+| `Player::UpdateArea` | rests in both sides' inns |
+| `Player::UpdateZone` | an intruder in neither side's capital, so not PvP flagged there |
+| `ObjectMgr::GetNearestTaxiNode` and its four callers, `ActivateTaxiPathTo` | discovers and flies from both sides' flight masters, on whichever mount the node has |
+| `Battlefield` invites | never invited to Wintergrasp's battle or queue, like a GM |
+
+The taxi callers used the *race's* team, which was also wrong for a character
+that switched sides: a Forsaken playing Alliance at the Stormwind gryphon
+master got the nearest node with a *Horde* mount instead of Stormwind. They now
+use `Player::GetTaxiTeamId()`, the side played, or `TEAM_NEUTRAL` (meaning
+either) when the character is unaligned.
+
+The module does the rest through existing hooks: battleground and arena queues
+refuse a neutral character, or a group with one in it, and a neutral member
+queued by someone else is stopped at the door (`OnPlayerCanBattleFieldPort`);
+`.faction neutral` refuses while you are in a battleground queue. On death it
+picks the nearest graveyard of *any* side (`OnPlayerBeforeChooseGraveyard`,
+asking with `TEAM_NEUTRAL`), not the nearest of its race's. Becoming neutral
+does not move or re-bind the character: nobody is hostile to it, so it has
+nowhere it needs to get away from. Leaving neutral for a side travels exactly
+like any other switch. A lore companion summoned by a neutral character
+becomes neutral too.
+
+Left as it is: loot with a team condition (518 rows, mostly faction versions
+of the same item) drops the race's side's version; the character speaks its
+race's language (`mod-languages` sells the rest); and the client's
+`UnitFactionGroup("player")` returns neither side, which addons may not
+expect.
+
+`python3 tools/diag_reactions.py --neutral` replays a fresh neutral character
+of every playable race and reports the NPC faction templates it refuses that a
+native of either side would talk to (0 for every race), then the reaction
+between the neutral template and every race's player template in both
+directions (friendly throughout). A real neutral character, given by name, is
+compared the same way.
 
 ### Every class can learn every weapon, and lockpicking
 

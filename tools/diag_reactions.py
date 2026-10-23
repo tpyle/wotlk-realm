@@ -5,6 +5,9 @@ Mirrors ReputationMgr::Initialize + LoadFromDB, then mod-factionchoice's
 ReconcileFactionFlags and PinReactions, then Unit::GetFactionReactionTo, so the
 set of NPCs a cross-faction character cannot talk to can be worked out without
 a game client.
+
+Run it with character names (or nothing, for every non-bot character), or with
+--neutral to simulate a fresh neutral character of every playable race.
 """
 import os, struct, subprocess, sys
 
@@ -52,6 +55,7 @@ for v in read_dbc("FactionTemplate"):
                            enemies=v[6:10], friends=v[10:14])
 
 races = {v[0]: v[2] for v in read_dbc("ChrRaces")}
+playable = {v[0] for v in read_dbc("ChrRaces") if not v[1] & 1}   # CHRRACES_FLAGS_NOT_PLAYABLE
 
 
 def base_row(f, race_mask, class_mask):
@@ -61,6 +65,25 @@ def base_row(f, race_mask, class_mask):
                 and (f["classMask"][i] & class_mask or f["classMask"][i] == 0)):
             return f["baseRep"][i], f["repFlags"][i]
     return 0, 0
+
+
+NEUTRAL_TEMPLATE = 1665       # FactionChoice.Neutral.FactionTemplate
+SIDE_NAMES = ["Alliance", "Horde", "neither side"]
+
+
+def side_row(f, side, race_mask, class_mask):
+    """mod-factionchoice BaselineFor: a side's starting value and flags. For
+    neutral (2) the friendliest of the own race, the Alliance proxy and the
+    Horde proxy - higher value first, then not at war - taken whole."""
+    if side in (0, 1):
+        return base_row(f, 1 << ((1 if side == 0 else 2) - 1), class_mask)
+    best = None
+    for mask in (race_mask, 1 << 0, 1 << 1):
+        value, flags = base_row(f, mask, class_mask)
+        if (best is None or value > best[0]
+                or (value == best[0] and best[1] & AT_WAR and not flags & AT_WAR)):
+            best = (value, flags)
+    return best
 
 
 def is_friendly_to(a, b):
@@ -89,16 +112,19 @@ def q(sql):
     return [line.split("\t") for line in out.splitlines() if line]
 
 
-def simulate(guid, name, race, klass, chosen_team):
+def simulate(guid, name, race, klass, side, rebase=False, quiet=False):
+    """side: 0 Alliance, 1 Horde, 2 neutral. rebase: the character has no saved
+    rows yet, so apply the module's AlignReputations to its starting values."""
     race_mask, class_mask = 1 << (race - 1), 1 << (klass - 1)
-    proxy_race = 1 if chosen_team == 0 else 2          # PROXY_RACE in the module
-    proxy_mask = 1 << (proxy_race - 1)
 
     # --- ReputationMgr::Initialize(): flags from the character's own race ---
     state = {}
     for f in by_replist.values():
         _, flags = base_row(f, race_mask, class_mask)
         state[f["ID"]] = dict(standing=0, flags=flags)
+        if rebase:
+            own, _ = base_row(f, race_mask, class_mask)
+            state[f["ID"]]["standing"] = side_row(f, side, race_mask, class_mask)[0] - own
 
     def effective(fid):
         f = factions[fid]
@@ -139,7 +165,7 @@ def simulate(guid, name, race, klass, chosen_team):
     reconciled = 0
     for f in by_replist.values():
         s = state[f["ID"]]
-        _, flags = base_row(f, proxy_mask, class_mask)
+        _, flags = side_row(f, side, race_mask, class_mask)
         want = flags & ADOPTED
         if (s["flags"] & VISIBLE) and not (want & (HIDDEN | INVISIBLE_FORCED)):
             want |= VISIBLE
@@ -151,20 +177,21 @@ def simulate(guid, name, race, klass, chosen_team):
     # --- mod-factionchoice: PinReactions ---
     forced = {}
     for f in by_replist.values():
-        _, flags = base_row(f, proxy_mask, class_mask)
+        _, flags = side_row(f, side, race_mask, class_mask)
         want_war = bool(flags & AT_WAR)
         if bool(state[f["ID"]]["flags"] & AT_WAR) == want_war:
             continue
         forced[f["ID"]] = HOSTILE if want_war else FRIENDLY
 
-    player_tpl = templates[races[proxy_race]]
-    print(f"\n=== {name} (guid {guid}, race {race}, class {klass}) -> "
-          f"{'Alliance' if chosen_team == 0 else 'Horde'} ===")
-    print(f"reconciled {reconciled} flag sets, pinned {len(forced)}: "
-          + ", ".join(f"{fid}" for fid in sorted(forced)))
-    print(f"player faction template {player_tpl['ID']} "
-          f"(ourMask {player_tpl['ourMask']}, friendlyMask {player_tpl['friendlyMask']}, "
-          f"hostileMask {player_tpl['hostileMask']})")
+    # DesiredFaction: neutral wears its own template, a side its proxy race's
+    player_tpl = templates[NEUTRAL_TEMPLATE if side == 2 else races[1 if side == 0 else 2]]
+    if not quiet:
+        print(f"\n=== {name} (guid {guid}, race {race}, class {klass}) -> {SIDE_NAMES[side]} ===")
+        print(f"reconciled {reconciled} flag sets, pinned {len(forced)}: "
+              + ", ".join(f"{fid}" for fid in sorted(forced)))
+        print(f"player faction template {player_tpl['ID']} "
+              f"(ourMask {player_tpl['ourMask']}, friendlyMask {player_tpl['friendlyMask']}, "
+              f"hostileMask {player_tpl['hostileMask']})")
 
     def reaction(tpl):
         """Unit::GetFactionReactionTo(creature template, player)."""
@@ -199,15 +226,58 @@ def simulate(guid, name, race, klass, chosen_team):
         if rank <= UNFRIENDLY:
             bad.append((int(count_s), int(tpl_id_s), tpl["faction"], RANKS[rank], why, example))
     bad.sort(reverse=True)
-    print(f"{len(bad)} creature faction templates refuse interaction "
-          f"({sum(b[0] for b in bad)} creature_template rows):")
-    for count, tpl_id, fid, rank, why, example in bad[:25]:
-        print(f"  tpl {tpl_id:<5} faction {fid:<5} {rank:<10} via {why:<10} "
-              f"{count:>6} npcs  e.g. {example}")
+    if not quiet:
+        print(f"{len(bad)} creature faction templates refuse interaction "
+              f"({sum(b[0] for b in bad)} creature_template rows):")
+        for count, tpl_id, fid, rank, why, example in bad[:25]:
+            print(f"  tpl {tpl_id:<5} faction {fid:<5} {rank:<10} via {why:<10} "
+                  f"{count:>6} npcs  e.g. {example}")
     return bad
 
 
+def natives():
+    """What a fresh native of each side refuses: a human and an orc warrior."""
+    return ({t for _, t, *_ in simulate(0, "<native Alliance>", 1, 1, 0, rebase=True, quiet=True)},
+            {t for _, t, *_ in simulate(0, "<native Horde>", 2, 1, 1, rebase=True, quiet=True)})
+
+
+def report_neutral(name, refused, alliance, horde):
+    """A neutral character should talk to anyone a native of either side would."""
+    extra = refused - (alliance & horde)
+    print(f"\n{name}: {len(extra)} faction templates refused that a native of either side "
+          f"would talk to" + (": " + ", ".join(map(str, sorted(extra))) if extra else ""))
+    return len(extra)
+
+
+def check_neutral_pvp():
+    """Unit::GetFactionReactionTo between player templates, both ways: a neutral
+    character and the players of either side should be friendly, never hostile."""
+    neutral = templates[NEUTRAL_TEMPLATE]
+    print("\nplayer vs neutral (template masks, both directions):")
+    for race in sorted(playable):
+        tpl_id = races[race]
+        tpl = templates[tpl_id]
+        out = []
+        for a, b in ((tpl, neutral), (neutral, tpl)):
+            if is_hostile_to(a, b):
+                out.append("HOSTILE")
+            elif is_friendly_to(a, b) or is_friendly_to(b, a):
+                out.append("friendly")
+            else:
+                out.append("neutral")
+        print(f"  race {race:<2} template {tpl_id:<5} sees neutral as {out[0]:<8} and is seen as {out[1]}")
+
+
 def main():
+    if sys.argv[1:] == ["--neutral"]:
+        alliance, horde = natives()
+        failures = 0
+        for race in sorted(playable):
+            refused = simulate(0, f"<neutral race {race}>", race, 1, 2, rebase=True)
+            failures += report_neutral(f"neutral race {race}", {t for _, t, *_ in refused}, alliance, horde)
+        check_neutral_pvp()
+        return 1 if failures else 0
+
     wanted = sys.argv[1:]
     where = ("AND c.name IN (" + ",".join(f"'{n}'" for n in wanted) + ")") if wanted else ""
     rows = q("SELECT c.guid, c.name, c.race, c.class, "
@@ -222,12 +292,18 @@ def main():
         return 1
 
     baseline = {}
+    neutrals = {}
     for guid, name, race, klass, team in rows:
-        if team not in ("1", "2"):
+        if team not in ("1", "2", "3"):
             print(f"\n=== {name} plays its own race's side, nothing to check ===")
             continue
         refused = simulate(int(guid), name, int(race), int(klass), int(team) - 1)
-        baseline[name] = {t for _, t, *_ in refused}
+        (neutrals if team == "3" else baseline)[name] = {t for _, t, *_ in refused}
+
+    if neutrals:
+        alliance, horde = natives()
+        for name, s in neutrals.items():
+            report_neutral(name, s, alliance, horde)
 
     # A cross-faction character should refuse interaction with the same NPCs a
     # native of the chosen side would. Anything extra is a bug in the rebase.

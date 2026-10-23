@@ -168,6 +168,10 @@ SETTINGS = {
         "FactionChoice.AlignReputations": "1",
         # levels 1-4 go to the new side's starting zone, not its capital
         "FactionChoice.StarterZoneMaxLevel": "4",
+        # a third side: friendly to both, quests and services from both, no
+        # battles; 1665 is a stock template in neither side's group
+        "FactionChoice.AllowNeutral": "1",
+        "FactionChoice.Neutral.FactionTemplate": "1665",
         # ask for a side (and a starting zone) on a character's first login
         "FactionChoice.PromptOnFirstLogin": "1",
         "FactionChoice.PromptDelay": "3000",
