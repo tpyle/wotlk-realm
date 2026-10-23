@@ -1,10 +1,10 @@
-# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-10-17 01:33:41 UTC
-server	435de9136a44c82fb955f96028db9862f7670d44
+# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-10-23 16:02:43 UTC
+server	a8d71ace3b8d68ac824ba59070a659a9177a8f9d
 server/modules/mod-ah-bot	9911a91bd1b1569ee8c118f48207800007d91c39
 server/modules/mod-playerbots	ddc931f1daf766666bcd7a018eefd5775d6ce514
 server/modules/mod-worldscale	f75ea00b235219be96104865cc2c02d0a63a1849
 server/modules/mod-openskills	955d36d0e31ae745c29cda0cab2995055334e8bf
-server/modules/mod-factionchoice	bec52739d730e98ef8cf6f9b775a9abd44fe7d89
+server/modules/mod-factionchoice	35228522e0c1a5ec632abb7f8f415e415727edc1
 server/modules/mod-botlore	09923d36a18477cffbf87f7795f90ebfe161232b
 server/modules/mod-talentgrant	f2a2de83a1546e95a9035944058a4f783b981265
 server/modules/mod-extraglyphs	df242bc4d60ecbf475152a1ca3ffc45dbac74d8d
@@ -14,7 +14,7 @@ server/modules/mod-spellcooldowns	5cc07196aa415378b77c505dc27926f2da0fe340
 server/modules/mod-aurastack	48899a66fcbe1d7b78b1f8312f159c3c3257ea20
 server/modules/mod-bigbags	ec10a85d5df1dbeea747539f9e748a54ac5397a6
 server/modules/mod-transmog-collect	139d2950ebe606bf24a46c52643b1b8697a307a9
-server/modules/mod-lorecompanions	9c0897b37235f01e03607b339f34ddb5312210f6
+server/modules/mod-lorecompanions	e9fba46cc0eb6e7c193f0b39405b9101f1f7dab2
 server/modules/mod-transmog	0d85cbc53d63ce2df8527169ce6ae47f5f6f6ba8
 server/modules/mod-aoe-loot	3d1466e122f2d43addb10e64b35e01025a214334
 server/modules/mod-worgoblin	818ab38c0b2d99f3c6faf634f21d1e8c6c9dee1a
