@@ -1214,7 +1214,7 @@ between the neutral template and every race's player template in both
 directions (friendly throughout). A real neutral character, given by name, is
 compared the same way.
 
-### Every class can learn every weapon, and lockpicking
+### Every class can learn every weapon, lockpicking, and Auto Shot
 
 `mod-openskills` (`server/modules/mod-openskills`,
 `run/etc/modules/mod_openskills.conf`). Any class can walk up to a weapon
@@ -1280,6 +1280,24 @@ lines (Throw) stay class-restricted, and the racial weapon specialisations
 live in other skill lines, so no race gains another race's bonuses. Every
 weapon skill uses the same flags and tier in `SkillRaceClassInfo`, so opening
 the masks does not change anyone's skill caps.
+
+**Auto Shot** (`OpenSkills.AutoShot`) is the exception to "Throw stays
+class-restricted". Stock files spell 75 under Marksmanship alone, hunter
+mask, and `Player::CheckSkillLearnedBySpell` deletes it at login from any
+class that may not hold that skill - so a `.learn 75` on a warrior lasted
+until logout. Warriors and rogues had only Shoot (3018), one shot with a cast
+time, and its warrior/rogue mask left a mage who bought Bows here with
+nothing to fire it with. The module's `openskills_auto_shot.sql` files Auto
+Shot under Bows, Guns and Crossbows too (`skilllineability_dbc`, IDs
+40000-40002, learned with the skill as Shoot is); the server builds both its
+spell-to-skill and skill-to-spell lookups from that table, so the spell now
+validates and is taught by the weapon skill. The rows ship with the hunter
+mask and the module clears it, under its own switch rather than `.Weapons`.
+Off is a real off: a login hook takes Auto Shot back from non-hunters, whose
+Bows skill would otherwise keep validating it. Opening Marksmanship (163)
+through `.Extra` would also have worked, but hands out the hunter's talent
+skill, not just the shot. No client patch: a non-hunter gets the plain shot,
+ammo required, no hunter talents; non-hunter bots ignore it.
 
 Every weapon master keeps their own list - the class gate is gone, but the
 *trainer's* list is not - so covering all fourteen trainable types means

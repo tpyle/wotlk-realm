@@ -343,6 +343,9 @@ SETTINGS = {
         "OpenSkills.Enable": "1",
         "OpenSkills.Weapons": "1",
         "OpenSkills.Lockpicking": "1",
+        # Auto Shot for anyone with Bows, Guns or Crossbows, not just hunters.
+        # Off takes it back from every non-hunter at their next login.
+        "OpenSkills.AutoShot": "1",
         # Plate Mail (293), Mail (413) and Leather (414), so every class can
         # train every armour proficiency - 25_armor_proficiencies_all_classes.sql
         # puts those on the class trainers at level 40, and without the masks
