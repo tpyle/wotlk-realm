@@ -1293,8 +1293,11 @@ Shot under Bows, Guns and Crossbows too (`skilllineability_dbc`, IDs
 spell-to-skill and skill-to-spell lookups from that table, so the spell now
 validates and is taught by the weapon skill. The rows ship with the hunter
 mask and the module clears it, under its own switch rather than `.Weapons`.
-Off is a real off: a login hook takes Auto Shot back from non-hunters, whose
-Bows skill would otherwise keep validating it. Opening Marksmanship (163)
+Off is a real off: a skill-taught spell is temporary, never saved and
+re-granted at each login, so it is just not granted next time; a login hook
+removes a hand-taught `.learn 75` from non-hunters, which Bows would
+otherwise keep validating. That also means `character_spell` holds no Auto
+Shot rows, not even for hunters - check in game, not in the database. Opening Marksmanship (163)
 through `.Extra` would also have worked, but hands out the hunter's talent
 skill, not just the shot. No client patch: a non-hunter gets the plain shot,
 ammo required, no hunter talents; non-hunter bots ignore it.
