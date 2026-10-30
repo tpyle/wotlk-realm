@@ -1274,6 +1274,14 @@ fills with SQL the DB updater applies:
   16. A locksmith is a fair thing for a blacksmith to be. Learning the spell
   is the whole of it - the core grants the skill automatically, and its
   maximum is five times the character's level thereafter.
+* **Glyph of Pick Lock** (item 43377) - not a trainer gap but the same
+  feature: the glyph's effect works for any caster, and only the item's
+  `AllowableClass` of 8 kept it a rogue's. Under `.Lockpicking` the module
+  sets that to every class in memory. It does so in
+  `OnBeforeWorldInitialized`, because mod-extraglyphs copies glyph class
+  masks in its `OnStartup` and loads first. No client patch: the client
+  takes the mask from the server's item query. But it caches that answer,
+  so a player who had already seen the glyph may need to delete `Cache/WDB`.
 
 Kept deliberately untouched: the automatic abilities that share those skill
 lines (Throw) stay class-restricted, and the racial weapon specialisations
