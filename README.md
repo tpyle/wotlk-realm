@@ -1627,8 +1627,9 @@ summoner's side through mod-factionchoice before logging in, so Sylvanas can
 walk through Stormwind with an Alliance party.
 
 Everything they say is written for them, in
-`server/modules/mod-lorecompanions/data/lines/` (over 2000 lines, including
-exchanges between pairs of companions when both are in the party).
+`server/modules/mod-lorecompanions/data/lines/` (over 4000 lines, including
+one for entering each zone, dungeon and raid, and exchanges between pairs of
+companions when both are in the party).
 mod-botlore recognises them and stays out of their mouths. The module's
 README covers the triggers, filters and how to add another companion.
 
