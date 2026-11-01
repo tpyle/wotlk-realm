@@ -31,6 +31,9 @@
 --
 -- The convention is spell = item entry + 100, so 90003's spell is 90103.
 --
+-- This file owns 90100-90149 and deletes only that much when rerun.
+-- 90150-90199 are for trainer-taught spells (sql/31_martial_fluidity.sql).
+--
 -- Rerunning this file is safe: DELETE then INSERT of the same rows.
 -- ---------------------------------------------------------------------------
 
@@ -60,7 +63,7 @@
 -- gen_spell_dbc.py compares them and refuses to ship a tooltip that disagrees
 -- with the table.
 
-DELETE FROM `spell_dbc` WHERE `ID` BETWEEN 90100 AND 90199;
+DELETE FROM `spell_dbc` WHERE `ID` BETWEEN 90100 AND 90149;
 INSERT INTO `spell_dbc`
     (`ID`, `CastingTimeIndex`, `ProcChance`, `RangeIndex`, `EquippedItemClass`,
      `Effect_1`, `ImplicitTargetA_1`, `SpellIconID`, `EffectChainAmplitude_1`,
@@ -121,7 +124,7 @@ WHERE `ID` BETWEEN 90103 AND 90107;
 -- when it lands. The item is consumed by the core from spellcharges_1 = -1,
 -- in Spell::TakeCastItem - which runs at the end of Spell::cast, after the
 -- effects, so an interrupted cast costs nothing.
-DELETE FROM `spell_script_names` WHERE `spell_id` BETWEEN 90100 AND 90199;
+DELETE FROM `spell_script_names` WHERE `spell_id` BETWEEN 90100 AND 90149;
 INSERT INTO `spell_script_names` (`spell_id`, `ScriptName`) VALUES
     (90103, 'spell_statbonus_grant'),
     (90104, 'spell_statbonus_grant'),

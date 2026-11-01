@@ -35,6 +35,14 @@ The skill list is read from the module itself - WeaponSkills() and LOCKPICKING
 in src/SkillIdList.h - and gated on the live configuration, so this cannot
 drift from what the module actually opens.
 
+It also carries the SkillLineAbility rows of the realm's own client-known
+spells (90100-90199, the block tools/gen_spell_dbc.py ships), read out of
+`skilllineability_dbc`. The client lists a trainer spell only if its own
+SkillLineAbility.dbc files it under a skill line, and patch-Y holds the one copy
+of that file the client reads - so a trainer-taught custom spell, Martial
+Fluidity, has to have its row here or the trainer never shows it. The server
+reads the same table at startup, so both copies come from one place.
+
 It packs its own archive, client-patch/patch-Y.MPQ, so there is nothing to run
 afterwards but the copy into the client's Data folder. No server restart:
 nothing the server reads has changed.
@@ -91,6 +99,10 @@ I_ABILITY_SKILL_LINE, I_ABILITY_CLASS_MASK = 1, 4
 
 ALL_CLASSES = 0xFFFFFFFF
 UNRESTRICTED = 0
+
+# The realm's client-known spells, as in gen_spell_dbc.py's SHIP_RANGE.
+CUSTOM_SPELLS = (90100, 90199)
+ABILITY_FIELDS = 14
 
 
 def module_skills():
@@ -170,6 +182,46 @@ def open_masks(source, staged, skills, skill_field, mask_field, open_to):
     return opened + already
 
 
+def custom_ability_rows():
+    """skilllineability_dbc rows for the realm's client-known spells, in DBC
+    field order (the table's columns are the 14 fields, in order)."""
+    lo, hi = CUSTOM_SPELLS
+    result = subprocess.run(["mysql", "-uacore", "-pacore", "-h127.0.0.1", "-N", "-B", "acore_world", "-e",
+                             f"SELECT * FROM skilllineability_dbc WHERE Spell BETWEEN {lo} AND {hi} ORDER BY ID"],
+                            capture_output=True, text=True)
+    if result.returncode != 0:
+        sys.exit(f"reading skilllineability_dbc failed: {result.stderr.strip()}")
+
+    rows = [[int(v) for v in line.split("\t")] for line in result.stdout.splitlines() if line]
+    for row in rows:
+        if len(row) != ABILITY_FIELDS:
+            sys.exit(f"skilllineability_dbc row {row[0]} has {len(row)} columns, expected {ABILITY_FIELDS}")
+    return rows
+
+
+def append_rows(staged, rows):
+    """Add whole records to a staged DBC, refusing an id it already has."""
+    data = bytearray(staged.read_bytes())
+    magic, records, fields, record_size, string_size = struct.unpack_from("<4sIIII", data, 0)
+
+    if fields != ABILITY_FIELDS or record_size != fields * 4:
+        sys.exit(f"{staged}: {fields} fields of {record_size} bytes, expected {ABILITY_FIELDS} of {ABILITY_FIELDS * 4}")
+
+    body_end = 20 + records * record_size
+    have = {struct.unpack_from("<I", data, 20 + i * record_size)[0] for i in range(records)}
+    clash = [row[0] for row in rows if row[0] in have]
+    if clash:
+        sys.exit(f"{staged}: ids {clash} are already in the file; pick others in skilllineability_dbc")
+
+    added = b"".join(struct.pack(f"<{fields}I", *(v & 0xFFFFFFFF for v in row)) for row in rows)
+    out = data[:body_end] + added + data[body_end:]
+    struct.pack_into("<I", out, 4, records + len(rows))
+    staged.write_bytes(out)
+
+    for row in rows:
+        print(f"{staged.name}: + {row[0]} (spell {row[2]} under skill line {row[1]})")
+
+
 def main():
     skills = module_skills()
     print(f"{len(skills)} skill(s) configured open: {', '.join(map(str, skills))}")
@@ -181,6 +233,8 @@ def main():
 
     if not touched:
         sys.exit("no row matched any configured skill - check the ids")
+
+    append_rows(STAGING_ABILITY, custom_ability_rows())
 
     print(f"{SOURCE.parent}: left untouched - mod-openskills owns the server side in memory")
 

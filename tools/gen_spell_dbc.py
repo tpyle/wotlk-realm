@@ -104,7 +104,7 @@ SERVER_FORMAT = (
 
 
 def sql(query):
-    result = subprocess.run(["mysql", "-uroot", "-N", "-B", "--raw", "acore_world", "-e", query],
+    result = subprocess.run(["mysql", "-uacore", "-pacore", "-h127.0.0.1", "-N", "-B", "--raw", "acore_world", "-e", query],
                             capture_output=True, text=True)
     if result.returncode != 0:
         sys.exit(f"query failed: {result.stderr.strip()}\n{query}")

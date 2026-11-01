@@ -72,7 +72,7 @@ it works around is entirely client-side.
 | `run/data/` | Client data the server needs: `dbc`, `maps`, `vmaps`, `mmaps` |
 | `sql/` | Custom SQL applied on top of the imported databases (all idempotent) |
 | `tools/` | The DBC generators, the MPQ packer and extractor, the config script and the diagnostics |
-| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc and Spell.dbc rows for custom items: their icons and their `Use:` lines, both of which the client takes from its own copies and not from anything the server sends - plus the correction that makes spells 815 and 817 grant Demonic and Kalimag instead of Common) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
+| `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks, and the skill line rows of trainer-taught custom spells), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc and Spell.dbc rows for custom items: their icons and their `Use:` lines, both of which the client takes from its own copies and not from anything the server sends - plus the correction that makes spells 815 and 817 grant Demonic and Kalimag instead of Common, and Martial Fluidity, the warrior passive that lifts stance requirements) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
 | `start.sh`, `stop.sh`, `status.sh` | Run the server |
 | `ADMIN_CREDENTIALS.txt` | The game master account (readable by its owner only) |
@@ -946,6 +946,8 @@ because the modules that depend on them will not compile without them:
 | `UnitScript::OnUnitGetLevelForTarget` hook | creatures aggroing and landing hits at their presented level | "Low level content that is still worth doing" |
 | `PlayerScript::OnPlayerQuestComputeLevel` hook | quest levels sent to the client | the same |
 | `PlayerScript::OnPlayerSatisfyQuestRace` hook | race-gated quests by the side played | "Quests by the side played" |
+| `AuraEffect::HandleShapeshiftBoosts` stance-change removal | buffs kept by an aura that ignores stance | "Warriors in any stance: Martial Fluidity" |
+| `Aura::CanBeSentToClient` | a passive aura that ignores stance reaches the client | the same |
 | `UnitScript::OnUnitRewardRage` hook | rage income when damage is scaled | "Rage, when the damage is scaled" |
 | `PlayerStorage.cpp` bonus talent read | a width bug, fixed | "Talent points on demand" |
 | `Player::isHonorOrXPTarget` | kill procs against scaled creatures | "Kill procs, when the level is scaled" |
@@ -1363,6 +1365,79 @@ ammo required, no hunter talents; non-hunter bots ignore it.
 Every weapon master keeps their own list - the class gate is gone, but the
 *trainer's* list is not - so covering all fourteen trainable types means
 visiting more than one. Wands are available from all of them.
+
+### Warriors in any stance: Martial Fluidity
+
+**Martial Fluidity** (spell 90150) is a passive that warrior class trainers
+teach at level 60 for 6 gold 20 silver. A warrior who knows it can use every
+ability in any stance: Overpower in Defensive Stance, Shield Wall in Berserker
+Stance, Intercept and Pummel in Battle Stance. The buffs those abilities put
+on the warrior also survive a change of stance. The stances themselves are
+unchanged: Defensive still reduces damage and Berserker still adds crit, and
+the stance passives (Improved Berserker Stance and the like) still apply only
+in their stance. Tooltips still say "Requires Defensive Stance", because that
+line comes from the ability's own data; the ability works anyway.
+
+**It needs patch-W and patch-Y.** The client checks a spell's stance itself and does not
+send a cast it thinks is in the wrong stance ("Must be in Battle Stance"), so
+the server cannot lift the rule alone. The client does understand an aura that
+lifts it - aura 275, `SPELL_AURA_MOD_IGNORE_SHAPESHIFT`, which Warbringer uses
+for Charge, Intercept and Intervene and Shadow Dance for the rogue's openers -
+but it reads that aura from its own Spell.dbc, and no stock spell carries one
+broad enough. So the spell is new, in both copies:
+
+* **Server** - `sql/31_martial_fluidity.sql` adds the `spell_dbc` row and the
+  `trainer_spell` row (trainer 1, every warrior trainer in the capitals and
+  towns). The spell is a passive self aura 275 whose class mask is every bit
+  of the warrior family, so it covers all 23 stance-locked warrior abilities
+  (69 spell ids across ranks). `Spell::CheckCast` already skips the form check
+  for any spell such an aura covers.
+* **Client** - `tools/gen_spell_dbc.py` ships the row into patch-W with the
+  realm's other custom spells. Without it the trainer still teaches the
+  spell, but the client goes on refusing the casts.
+* **Skill line** - the same SQL files it under Arms (`skilllineability_dbc`
+  row 40100, skill line 26, where Battle Stance is), and
+  `tools/gen_openskills_client_dbc.py` adds that row to the client's
+  SkillLineAbility.dbc in patch-Y. The client lists a trainer spell only if
+  its own SkillLineAbility.dbc files it under a skill line, and drops one that
+  has none without a word: the first build had only the spell and the trainer
+  row, and a level 60 warrior with the new patch-W saw nothing at the trainer
+  while the server was sending it. The row also puts the passive on the Arms
+  tab of the spellbook.
+
+**The client has to be sent the aura, too.** The core does not send passive
+auras to the client (`Aura::CanBeSentToClient`) unless they are area auras
+or carry aura 262, `SPELL_AURA_ABILITY_IGNORE_AURASTATE`. Warbringer carries a
+262 next to its 275, so it was always sent. Martial Fluidity carries only the
+275, so it was not: a warrior could learn it, the server kept the buffs through
+a stance change, and the client went on refusing every out-of-stance cast,
+because as far as it knew the warrior had no such aura. Passives with aura 275
+are now sent as well. Warbringer is the only stock passive with that aura, so
+nothing stock changes.
+
+So it takes **both patch-W and patch-Y**. The generator ships every
+`skilllineability_dbc` row whose spell is in 90100-90199, so the next
+trainer-taught custom spell needs only its row in the table.
+
+Ids 90150-90199 are for trainer-taught spells the client has to know;
+`sql/28_custom_spells.sql` keeps 90100-90149 and now deletes only those on a
+rerun, where it used to clear the whole block.
+
+**Keeping the buffs.** On a stance change the core strips every buff of the
+warrior's own whose spell names stances and does not name the new one
+(`AuraEffect::HandleShapeshiftBoosts`). Shield Wall cast in Battle Stance
+would therefore vanish on the way to Berserker. The loop now spares any
+non-passive aura whose spell an aura 275 on the warrior covers: a spell that
+may be cast in any form keeps its effect in any form. Passives are not spared,
+so the stance passives still come and go with their stance. The only stock
+spells this also touches are the ones stock aura 275 already covers; of those,
+the one buff that lands on the caster is Premeditation, which a rogue now keeps
+on leaving stealth during Shadow Dance. Everything else they cover lands on
+the target, and the loop only removes the caster's own.
+
+Random bots learn it at 60 with the rest of their trainer spells
+(`AiPlayerbot.AutoLearnTrainerSpells`). Their AI still changes stance the way
+it always did.
 
 ### Lore chatter from the bots
 
