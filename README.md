@@ -1369,7 +1369,7 @@ visiting more than one. Wands are available from all of them.
 ### Warriors in any stance: Martial Fluidity
 
 **Martial Fluidity** (spell 90150) is a passive that warrior class trainers
-teach at level 60 for 6 gold 20 silver. A warrior who knows it can use every
+teach at level 60 for 1000 gold, a price meant to gate it. A warrior who knows it can use every
 ability in any stance: Overpower in Defensive Stance, Shield Wall in Berserker
 Stance, Intercept and Pummel in Battle Stance. The buffs those abilities put
 on the warrior also survive a change of stance. The stances themselves are

@@ -59,11 +59,13 @@ VALUES
 -- Trainer 1 is the warrior class trainer of every capital and town (31
 -- creatures); trainer 2 is the starting-area one, which teaches nothing past
 -- level 6. Level 60, so it comes once a warrior has every stance and most of
--- its abilities, at 6 gold 20 silver, what that trainer asks for most new
--- ranks at 60 (Rend, Cleave and Shield Slam).
+-- its abilities. 1000 gold (10,000,000 copper), on purpose: the passive is
+-- strong enough to want a price that gates it, where a new rank at 60 costs
+-- about 6 gold. The trainer packet carries the cost as an int32, so anything
+-- up to about 214,000 gold fits; `.reload trainer` applies a change live.
 DELETE FROM `trainer_spell` WHERE `SpellId` = 90150;
 INSERT INTO `trainer_spell` (`TrainerId`, `SpellId`, `MoneyCost`, `ReqLevel`) VALUES
-    (1, 90150, 62000, 60);
+    (1, 90150, 10000000, 60);
 
 -- The trainer list also needs a skill line. The client checks its own
 -- SkillLineAbility.dbc before it lists a trainer spell, and quietly drops one
