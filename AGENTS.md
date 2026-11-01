@@ -66,8 +66,8 @@ short list of rules and traps.
 
 ## Tests
 
-- mod-worldscale, mod-botlore, mod-talentgrant, mod-spellcooldowns and
-  mod-bankreagents keep their logic in pure headers with googletest suites
+- mod-worldscale, mod-botlore, mod-talentgrant, mod-spellcooldowns,
+  mod-bankreagents and mod-factionchoice keep their logic in pure headers with googletest suites
   that build without the server:
   `cmake -S tests -B build-tests && cmake --build build-tests && ctest --test-dir build-tests --output-on-failure`.
   Keep new logic in those modules testable the same way.

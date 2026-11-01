@@ -38,7 +38,7 @@ it is not worth that.
 
 | repository | origin (pushed to) | upstream (merged from) | what is local |
 | --- | --- | --- | --- |
-| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations, hostile capitals, rest areas and flight masters by the side a character plays for, and for one that plays for neither |
+| `server/` | [tpyle/azerothcore-wotlk](https://github.com/tpyle/azerothcore-wotlk) | [liyunfan1223/azerothcore-wotlk](https://github.com/liyunfan1223/azerothcore-wotlk), branch `Playerbot` | five additive script hooks and their call sites, `ReputationMgr::AdoptFactionState`, the `extraBonusTalentCount` width fix, kill credit by reported level, bank reagents, multiple profession specializations, hostile capitals, rest areas and flight masters by the side a character plays for, and for one that plays for neither, race-gated quests by the side played |
 | `server/modules/mod-ah-bot` | [tpyle/mod-ah-bot](https://github.com/tpyle/mod-ah-bot) | [azerothcore/mod-ah-bot](https://github.com/azerothcore/mod-ah-bot) | seller shuffle, full trade-good stacks, a lot size of their own for greens, pricing for items with no vendor sell price, one log line demoted |
 | `server/modules/mod-playerbots` | [tpyle/mod-playerbots](https://github.com/tpyle/mod-playerbots) | [liyunfan1223/mod-playerbots](https://github.com/liyunfan1223/mod-playerbots) | quest hubs as a random-teleport destination |
 
@@ -945,6 +945,7 @@ because the modules that depend on them will not compile without them:
 | `ReputationMgr::AdoptFactionState` | faction switching, below | this section |
 | `UnitScript::OnUnitGetLevelForTarget` hook | creatures aggroing and landing hits at their presented level | "Low level content that is still worth doing" |
 | `PlayerScript::OnPlayerQuestComputeLevel` hook | quest levels sent to the client | the same |
+| `PlayerScript::OnPlayerSatisfyQuestRace` hook | race-gated quests by the side played | "Quests by the side played" |
 | `UnitScript::OnUnitRewardRage` hook | rage income when damage is scaled | "Rage, when the damage is scaled" |
 | `PlayerStorage.cpp` bonus talent read | a width bug, fixed | "Talent points on demand" |
 | `Player::isHonorOrXPTarget` | kill procs against scaled creatures | "Kill procs, when the level is scaled" |
@@ -1127,13 +1128,62 @@ Two supporting changes come with it:
 
 * All `AllowTwoSide.Interaction.*` options are on (chat, channels, group, guild,
   arena, auction, calendar), so the two sides can actually play together.
-* `sql/03_quests_any_race.sql` removes the race requirement from quests
-  (`AllowableRaces = 0`). Quest access is checked against your *race*, not your
-  team, so without this a Horde Human could not take Horde quests (wrong race)
-  and could not reach Alliance quest givers either (hostile) - 4919 of 9464
-  quests were affected. The original values are saved in
-  `quest_template_allowableraces_backup`; `sql/03_quests_any_race_revert.sql`
-  puts them back.
+* Race-gated quests are judged by the side you play for. See "Quests by
+  the side played" below.
+
+### Quests by the side played
+
+The core checks a quest's `AllowableRaces` against the character's *race*
+(`Player::SatisfyQuestRace`). A Horde Human therefore passed every Alliance
+quest, because it is a Human, and failed every Horde one, because it is not an
+Orc. 4919 of 9464 quests carry a race mask.
+
+The first answer was `sql/03_quests_any_race.sql`, which set every mask to 0.
+That made questing possible on the other side, but it opened every quest to
+everyone, so a character could pick up the other side's quests by accident at
+any neutral quest giver, or anywhere the two sides' givers stand together.
+
+The masks turned out to be sides almost everywhere. 2333 are exactly "every
+Alliance race" (1101) and 2158 exactly "every Horde race" (690). Of the other
+428, all but 24 name races of one side only: starter-zone quests for one or
+two races, class quests, the death knight quests per race. So the masks are
+back, and the side played is what they are tested against:
+
+| character | may take a race-gated quest when |
+| --- | --- |
+| playing its race's own side | the stock test passes. A Human on the Alliance still cannot take a Draenei-only quest |
+| playing the other side | the mask names at least one race of the side played; its own race does not count |
+| walking with neither side | always, as it is served by both sides |
+
+So a Horde Human is offered no Alliance quests, and does get the Orc-only
+quests of the Valley of Trials, where a low level switcher is sent. It also
+gets every other Horde race's own quests (Tauren-only ones in Mulgore, say),
+which a native Orc does not. That is the price of not having a race on the
+Horde side to test against, and the content is all the Horde's.
+
+The core has one new hook, `PlayerScript::OnPlayerSatisfyQuestRace`, called
+after the stock test with its result by reference. It has to be able to refuse
+as well as allow: an allow-only hook would leave the Horde Human's own race bit
+letting the Alliance quests through. The same function decides the quest giver
+markers and lists (`CanSeeStartQuest`), the take itself, and what the bots
+look for, so it needs no further call sites. The rule is in
+`mod-factionchoice/src/QuestSide.h`, a pure header with a googletest suite.
+The team it reads is the side played; a neutral character keeps its race's
+team and is recognised by `Player::IsUnaligned()`. The race mask is never sent
+to the client, so no client patch is needed.
+
+`sql/03_quests_by_side.sql` replaces the old file. It restores the masks from
+`quest_template_allowableraces_backup`, the copy the old file took, and then
+applies mod-worgoblin's mask update again (Goblins added wherever Orcs are,
+Worgen wherever Humans are, except one death knight quest each). That update
+ships with mod-worgoblin, but it ran here after the masks were already 0, so
+it changed nothing. A native Goblin is tested by race, so without those bits
+it would have been offered no Horde quests at all. On a database that never
+ran the old file, the restore finds an empty backup table and does nothing.
+
+A character that took the other side's quests while every quest was open
+keeps them: the test applies when a quest is offered and taken, not to the
+quest log.
 
 ### Walking with neither side
 
@@ -1165,8 +1215,8 @@ is made neutral in the two places where the world actually judges it:
   Everything else - the per-login flag reconcile, `PushFactionFlags`, the pins,
   `.faction reset` - works exactly as for a side switch.
 
-Quests need nothing more: `03_quests_any_race.sql` already removed the race
-gate, no quest-availability condition in the world database depends on team,
+Quests need nothing more: a neutral character may take every race-gated quest
+(see "Quests by the side played"), no quest-availability condition in the world database depends on team,
 and the reputation-gated ones follow the dual reputations. Quests that exist
 once per side (the 293 pairs in `player_factionchange_quests`) can be done
 twice. Quests that send you to kill the *other* side's NPCs, in Hillsbrad,
@@ -2992,7 +3042,8 @@ mysql -uacore -pacore -h127.0.0.1 acore_world < /opt/wow/classic/sql/02_big_bags
 Five of the modules written here carry unit tests: mod-worldscale (24),
 mod-botlore (27), mod-talentgrant (15), mod-spellcooldowns (10) and
 mod-bankreagents (8). **84 tests, and they run in under a second** - because
-none of them needs a server.
+none of them needs a server. mod-factionchoice (7, `QuestSide.h`) works the
+same way.
 
 That is the whole design. A module's logic normally lives inside hook methods
 that take a `Player` and a `Creature`, which cannot be called without a
@@ -3131,10 +3182,9 @@ MySQL 8.4, user `acore` / password `acore`:
   module moves you to your new capital and re-binds your hearthstone there. The
   reverse is also true: a Horde Human can walk into Orgrimmar, but Stormwind
   will shoot at them.
-* **Quests no longer check race at all** (see
-  `sql/03_quests_any_race.sql`). That is what makes questing possible for a
-  race playing on the "wrong" side, but it also means anyone can pick up
-  quests that were originally race-specific. The revert script is next to it.
+* **Quests are gated by the side played, not by race** (see "Quests by the
+  side played"). A character playing the other side may take every race's
+  quests of that side, not only those of one race.
 * **You end up at war with the side you left.** That is the point - an Orc
   playing Alliance is attacked in Orgrimmar - but it does mean your race's own
   capital is off limits until you `.faction reset`.
