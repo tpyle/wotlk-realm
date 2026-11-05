@@ -1,7 +1,7 @@
-# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-11-01 17:56:22 UTC
+# path <tab> commit - written by tools/bootstrap.sh --lock on 2026-11-05 01:03:57 UTC
 server	de93c78c052a5e92fdfb04f62f83b86fb33459e5
 server/modules/mod-ah-bot	9911a91bd1b1569ee8c118f48207800007d91c39
-server/modules/mod-playerbots	ddc931f1daf766666bcd7a018eefd5775d6ce514
+server/modules/mod-playerbots	970f978f853361504e29e997d86fd01074126cd3
 server/modules/mod-worldscale	f75ea00b235219be96104865cc2c02d0a63a1849
 server/modules/mod-openskills	11727bc1dd7a97d6b144b3b0515f08147ff205c1
 server/modules/mod-factionchoice	95e7e80594ae05a58ee8c45e28ed3b3a822b2f80

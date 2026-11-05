@@ -393,15 +393,19 @@ SETTINGS = {
     },
     "modules/playerbots.conf": {
         "AiPlayerbot.Enabled": "1",
-        "AiPlayerbot.MinRandomBots": "500",
-        "AiPlayerbot.MaxRandomBots": "500",
+        # about 10 per zone under ZoneFill below: 59 levelling zones and 10
+        # capitals. 1000 random-bot characters exist, so this logs in more of
+        # them rather than creating any.
+        "AiPlayerbot.MinRandomBots": "700",
+        "AiPlayerbot.MaxRandomBots": "700",
         "AiPlayerbot.RandomBotAutologin": "1",
         # keep the bot population spread across level brackets instead of
-        # letting it drift to 80, and pull it towards whatever level the real
-        # players are at (see the LEVEL BRACKETS block in playerbots.conf)
+        # letting it drift to 80. ZoneFill sizes the brackets by how many zones
+        # each level has to fill, which replaces the dynamic distribution: that
+        # pulled half of all bots into the real player's bracket (weight 10).
         "AiPlayerbot.LevelBrackets.Enabled": "1",
         "AiPlayerbot.LevelBrackets.CheckFrequency": "300",
-        "AiPlayerbot.LevelBrackets.Dynamic.UseDynamicDistribution": "1",
+        "AiPlayerbot.LevelBrackets.Dynamic.UseDynamicDistribution": "0",
         "AiPlayerbot.LevelBrackets.Dynamic.RealPlayerWeight": "10.0",
         "AiPlayerbot.LevelBrackets.Dynamic.SyncFactions": "1",
         # bots never emoted or greeted with these off; both are emote-only, no text
@@ -425,8 +429,15 @@ SETTINGS = {
         # was at the 30000 maximum: the "Wanna party in <zone>" channel spam that
         # would otherwise drown out the authored lore lines
         "AiPlayerbot.BroadcastChanceSuggestSomething": "3000",
-        # bias random bot teleports towards zones that hold a real player
-        "AiPlayerbot.RandomBotConcentrateInPlayerZone": "1",
+        # Spread the bots evenly: each teleport goes to the emptiest zone the
+        # bot may use, and no town spot (quest hub, inn, flight master, banker)
+        # takes more than two. This is what keeps a zone from filling up just
+        # because a real player is standing in it.
+        "AiPlayerbot.ZoneFill.Enabled": "1",
+        "AiPlayerbot.ZoneFill.MaxBotsPerTownSpot": "2",
+        # Off: it pulled teleports into the real player's zone, the opposite
+        # of an even spread. ZoneFill ignores it anyway.
+        "AiPlayerbot.RandomBotConcentrateInPlayerZone": "0",
         # Send a quarter of random teleports to a quest hub instead of a mob
         # field. Without this no town is ever a destination: the stock
         # destination cache is built from creature clusters with npcflag == 0,

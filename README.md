@@ -221,17 +221,22 @@ with teeth.
 
 ## The requested features
 
-### Bots (500 by default)
+### Bots (700 online)
 
 `mod-playerbots` (the module that goes with this fork of the core). Its own
-defaults are already 500 bots, and `run/etc/modules/playerbots.conf` pins them:
+defaults are 500 bots; this realm runs 700, about ten for each zone zone fill
+spreads them over (see "Where the bots are"), and
+`run/etc/modules/playerbots.conf` pins them:
 
 ```ini
 AiPlayerbot.Enabled = 1
-AiPlayerbot.MinRandomBots = 500
-AiPlayerbot.MaxRandomBots = 500
+AiPlayerbot.MinRandomBots = 700
+AiPlayerbot.MaxRandomBots = 700
 AiPlayerbot.RandomBotAutologin = 1
 ```
+
+1000 random-bot characters exist (100 accounts), so raising the count logs in
+more of them; nothing new is created until it goes past 1000.
 
 The bots need their own database (`acore_playerbots`), which is why
 `Updates.EnableDatabases` is `15` (auth + characters + world + playerbots)
@@ -2471,9 +2476,100 @@ Current settings, all in `run/etc/modules/playerbots.conf` and registered in
 | `AiPlayerbot.LevelBrackets.Dynamic.SyncFactions` | 0 | **1** | keeps Alliance and Horde bracket counts in step |
 | `AiPlayerbot.LevelBrackets.Dynamic.RealPlayerWeight` | 1.0 | **10.0** | the option's own docs recommend this "if you want a large congestion of bots in your level bracket for solo play" |
 
-`RandomBotConcentrateInPlayerZone` only does anything **while a real player is
-online** - it falls back to world-wide behaviour otherwise - so its effect
-cannot be observed from the console with nobody logged in.
+`RandomBotConcentrateInPlayerZone` and the dynamic level weighting were later
+switched off in favour of zone fill, below; the rows above say what they were
+set to while they were in use.
+
+#### Zone fill: about ten bots in every zone
+
+With the player-zone pull and a real-player level weight of 10, the bots
+followed the player. One real player at level 60 put **214 of 500 bots** in
+the 60-69 bracket (half the population, by design: 1 + 10 ln 2 against 1 for
+each of the other eight brackets), and every one of them whose level suited
+the player's zone was teleported into it. The rest of the world shared about
+30 bots per bracket across 60-odd zones.
+
+Two things had to change together, because each undoes the other alone:
+
+* **Where a bot goes.** `AiPlayerbot.ZoneFill.Enabled` makes every random
+  teleport, including the one after a revive, look at all the zones the bot
+  may use and send it to the one holding the fewest random bots. A zone is
+  usable when the bot's level is inside its band (the 59 levelling zones of
+  the fork's `zone2LevelBracket`, Wintergrasp included, plus the home cities
+  at 10-60, Shattrath at 61-70 and Dalaran at 71-80), it is the bot's own
+  side's or shared, and it is inside the starting-area leash low-level bots
+  already have. Inside the chosen zone the bot rolls `ProbTeleToQuestHubs`
+  for a town spot (quest hub, inn, flight master or banker) and otherwise
+  goes to a mob field. The banker roll, the hub roll and the player-zone pull
+  are not used while it is on.
+* **How many bots of each level there are.** Zone fill also sizes the level
+  brackets: each zone's weight (1 for a zone one side owns, 0.5 per side for
+  a shared one) is spread over the levels of its band, and each bracket gets
+  the share its levels add up to. Without this a band with ten zones and a
+  band with three would get the same number of bots.
+
+If no spot in the emptiest zone can be landed on (`RandomTeleport` refuses
+water and places with no floor, and mob-field spots are rounded to a 50-yard
+grid, height included), the bot tries the next-emptiest zone, up to four zones
+and 20 spots each. Without that a bot would stay where it stood and choose the
+same zone again on its next teleport.
+
+**A zone whose world PvP battle is running is skipped** - Wintergrasp, in
+practice. During the battle the core invites everyone in the zone to the war
+and teleports anyone who does not accept to the battlefield's kick position,
+which for Wintergrasp is in Icecrown. Bots never accept. The first measurement
+after zone fill went live had Wintergrasp at 2 bots, so it was always the
+emptiest level 80 zone and every level 80 teleport was sent there, and
+Icecrown at **55**, 19 of them standing on the kick point. Between battles
+Wintergrasp fills like any other zone; bots already there when a battle starts
+are kicked to Icecrown once, and spread out again on their next teleport.
+
+`AiPlayerbot.ZoneFill.MaxBotsPerTownSpot` (2) caps how many bots stand at one
+town spot, counted within 50 yards. When every town spot in the zone is full
+the bot goes to a mob field, or to the least crowded town spot if the zone has
+none for its level (a capital, usually).
+
+**700 bots** is about ten per zone: 59 levelling zones and 10 capitals. Of
+those 59, 8 are Alliance-only and 7 Horde-only (the starting and early zones),
+so each side fills about 35 zone-shares.
+
+The bookkeeping, since several teleports are decided at once: the bot manager's
+update (every `RandomBotUpdateInterval`, 20 seconds) takes a snapshot of where
+every bot is, on the world thread after the map updates have finished. Each
+teleport decided since then leaves a 45-second reservation at its spot, so a
+pass that moves sixty bots does not send them all to the zone that was
+emptiest when it began. A level-up teleport runs on a map thread, so the
+snapshot is behind a mutex. The decisions themselves (bracket demand, the
+emptiest pick with ties shared out, the cap) are in `ZoneFill.h`, a pure
+header with a googletest suite under `mod-playerbots/tests/`.
+
+Left as they were:
+
+* **The starting-area leash.** `StarterLevelDistanceCheck` keeps a bot up to
+  level 10 within 2500 yards of its race's start and up to 16 on the same
+  continent, so the starting zones fill from their own races only: Dun Morogh
+  has two races to draw on, Azuremyst one. Zone fill applies the leash when it
+  chooses, so it never picks a zone the bot cannot reach.
+* **Levels 1-4.** No zone's band reaches below 5, so those bots use the stock
+  teleport to their starting area, which lies in a starting zone anyway.
+* **Zones outside the table** (Alterac Mountains, Deadwind Pass, Moonglade and
+  the like) get no bots by teleport, as before.
+* **Arena team bots.** 66 of the bots online are level 80 members of the 25
+  bot arena teams (`RandomBotArenaTeam*Count`: ten 2v2, ten 3v3, five 5v5),
+  and `LevelBrackets.IgnoreArenaTeamBots` keeps the level manager from
+  re-levelling them, so that the teams stay valid. Zone fill wants about 14
+  bots at level 80; there are 78. They can only go to the seven zones whose
+  band reaches 80 (Zul'Drak, the Storm Peaks, Icecrown, Crystalsong, Sholazar,
+  Wintergrasp, Dalaran), which therefore run at about 15-20 where the rest of
+  the world runs at about 10. Kept on purpose, for arena against bots.
+
+Measured 40 minutes after a restart with 700 bots online: all 69 zones held
+bots, **6 to 16 each, average 10.1**, none left anywhere else. The busiest were
+the seven level 80 zones at 14-16, as expected from the arena bots; the
+emptiest was Tirisfal Glades at 6 (one race's starting zone, so one race to
+draw low levels from). Nobody stood on the Wintergrasp kick point. Before zone
+fill the same server had 1 to 47 per zone. Counts come from `characters.zone`,
+which is as of each bot's last save.
 
 `AiPlayerbot.BroadcastChanceSuggestSomething` is also managed, at **3000**
 against a stock 30000. It is redundant now - `EnableBroadcasts = 0` zeroes
@@ -2611,6 +2707,18 @@ data:
 | `Bot/RandomPlayerbotMgr.cpp` | the hub roll in `RandomTeleportForLevel`, with the player-zone filter |
 | `PlayerbotAIConfig.{h,cpp}` | `probTeleToQuestHubs` |
 | `conf/playerbots.conf.dist` | documents the option |
+
+Zone fill (see "Where the bots are") added a second, larger patch, also off by
+default:
+
+| file | change |
+| --- | --- |
+| `Mgr/Travel/ZoneFill.h` | the decisions, pure functions, tested in `tests/` |
+| `Mgr/Travel/TravelMgr.{h,cpp}` | `PrepareZoneSpots`: every destination tagged with its zone; `GetZoneFillDemand` |
+| `Bot/RandomPlayerbotMgr.{h,cpp}` | the bot snapshot, reservations and `TeleportToEmptiestZone`, called first from `RandomTeleportForLevel` and `RandomTeleportGrindForLevel` |
+| `Bot/RandomBotLevelMgr.cpp` | bracket percentages from zone demand |
+| `PlayerbotAIConfig.{h,cpp}`, `conf/playerbots.conf.dist` | `ZoneFill.Enabled`, `ZoneFill.MaxBotsPerTownSpot` |
+| `mod-playerbots.cmake`, `tests/`, `.github/workflows/unit-tests.yml` | the tests, standalone and in the core's `unit_tests` |
 
 Like the core changes, **it has to be remembered on any upstream merge.**
 
@@ -3117,8 +3225,8 @@ mysql -uacore -pacore -h127.0.0.1 acore_world < /opt/wow/classic/sql/02_big_bags
 Five of the modules written here carry unit tests: mod-worldscale (24),
 mod-botlore (27), mod-talentgrant (15), mod-spellcooldowns (10) and
 mod-bankreagents (8). **84 tests, and they run in under a second** - because
-none of them needs a server. mod-factionchoice (7, `QuestSide.h`) works the
-same way.
+none of them needs a server. mod-factionchoice (7, `QuestSide.h`) and
+mod-playerbots' zone fill (10, `ZoneFill.h`) work the same way.
 
 That is the whole design. A module's logic normally lives inside hook methods
 that take a `Player` and a `Creature`, which cannot be called without a
