@@ -1,0 +1,23 @@
+# Rendered into /etc/systemd/system by tools/install_systemd.sh; edit this copy.
+[Unit]
+Description=AzerothCore auth server
+Requires=mysql.service
+After=network.target mysql.service
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@ROOT@/run/bin
+ExecStart=@ROOT@/run/bin/authserver
+# "Started" means listening, so its database updates are finished before the
+# world server (ordered after this unit) begins its own: on an empty database
+# the two updaters deadlock against each other.
+ExecStartPost=@ROOT@/tools/systemd/wait-for-port.sh authserver.conf RealmServerPort
+Restart=on-failure
+RestartSec=5
+TimeoutStartSec=300
+LimitNOFILE=524288
+
+[Install]
+WantedBy=multi-user.target

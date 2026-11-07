@@ -52,6 +52,11 @@ SETTINGS = {
         "Appender.Server": "2,5,0,Server.log,w,52428800",
         "Appender.Playerbots": "2,5,0,Playerbots.log,w,52428800",
         "Appender.Errors": "2,2,0,Errors.log,w,10485760",
+        # The console goes to the journal, which stores a line holding a control
+        # character as an opaque blob, and journalctl prints "[120B blob data]".
+        # So no colours and no bell.
+        "Appender.Console": "1,4,0",
+        "BeepAtStart": "0",
         # Anti-cheat off: a two-player realm has nothing to police, and the
         # stock setting (ClientCheckFailAction = 0) only logged failures
         # anyway. Turning it off also drops the Warden module from every
@@ -99,9 +104,10 @@ SETTINGS = {
     },
     "authserver.conf": {
         "Appender.Auth": "2,5,0,Auth.log,w,10485760",
+        "Appender.Console": "1,5,0",
         "LogsDir": f'"{LOGS}"',
-        # the auth server owns the auth database updates (see start.sh: it is
-        # started first, so it can never race the world server over them)
+        # the auth server owns the auth database updates (its unit is ordered
+        # first, so it can never race the world server over them)
         "Updates.EnableDatabases": "1",
         "Updates.ExceptionShutdownDelay": "10000",
     },

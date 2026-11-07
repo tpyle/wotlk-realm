@@ -74,7 +74,7 @@ it works around is entirely client-side.
 | `tools/` | The DBC generators, the MPQ packer and extractor, the config script and the diagnostics |
 | `client-patch/` | `patch-Z.MPQ` (all classes on all races, and Worgen/Goblin against the HD patches), `patch-Y.MPQ` (the open skill masks, and the skill line rows of trainer-taught custom spells), `patch-X.MPQ` (the dungeon finder), `patch-W.MPQ` (Item.dbc and Spell.dbc rows for custom items: their icons and their `Use:` lines, both of which the client takes from its own copies and not from anything the server sends - plus the correction that makes spells 815 and 817 grant Demonic and Kalimag instead of Common, and Martial Fluidity, the warrior passive that lifts stance requirements) and `patch-A.MPQ` (Worgen and Goblin) for the game client, and the `addon/` folder (BankReagents, ExtraGlyphs, FishingSwap, TransmogAzerothCore) |
 | `logs/` | Server logs |
-| `start.sh`, `stop.sh`, `status.sh` | Run the server |
+| `start.sh`, `stop.sh`, `status.sh`, `console.sh` | Run the server, through the systemd units in `tools/systemd/` |
 | `ADMIN_CREDENTIALS.txt` | The game master account (readable by its owner only) |
 
 ## Running it
@@ -84,6 +84,7 @@ it works around is entirely client-side.
 /opt/wow/classic/status.sh    # what is up, and how many bots are online
 /opt/wow/classic/stop.sh      # warn players, kick them, then graceful shutdown
 /opt/wow/classic/stop.sh --now  # skip the warning (nothing but bots online)
+/opt/wow/classic/console.sh   # the world server's console
 ```
 
 `stop.sh` warns any real player, waits `STOP_GRACE` seconds (15 by default) and
@@ -92,19 +93,71 @@ shutdown calls `WorldSessionMgr::KickAll()`, which logs out and saves all 500
 bots, and until that finishes the server answers nobody. A client left
 connected through it can still walk around on its own prediction but gets no
 reply to anything - including its own logout request - which looks exactly like
-a hang. Kicking first returns it to the login screen immediately. The script
-also waits up to 180s for the bot saves before resorting to killing the
-session.
-
-Each server runs in its own tmux session, so the console stays available:
-
-```bash
-tmux attach -t acore-world   # detach with Ctrl-B then D
-tmux attach -t acore-auth
-```
+a hang. Kicking first returns it to the login screen immediately. The stop
+also waits up to 180s for the bot saves before falling back to signals.
 
 Useful console commands: `account create <user> <pass>`,
 `account set gmlevel <user> 3 -1`, `server info`, `playerbots status`.
+
+### Running under systemd
+
+The servers are two system services, `acore-auth` and `acore-world`, enabled at
+boot and running as the owner of the tree. `tools/install_systemd.sh` renders
+`tools/systemd/*.service.in` with this checkout's location and owner, installs
+them and enables them; re-run it after changing a template. Plain `systemctl`
+works as well as the scripts, and takes the same path:
+
+```bash
+sudo systemctl restart acore-world      # warns and kicks players, saves bots
+sudo journalctl -fu acore-world         # console output (files still go to logs/)
+./console.sh 'server info'              # one command, and what it printed
+```
+
+`./status.sh` reports each unit's state. `activating` means still loading: the
+units count as `active` only once the server is listening on its port.
+
+What each part of the design is for:
+
+* **The console is a FIFO on stdin.** `console.sh` writes to
+  `/run/acore-world/console` and reads the answer back out of the journal, so
+  there is no pty and no tmux. Tab completion is gone; everything else works.
+  A service's stdin is `/dev/null` by default, and the console thread's readline
+  never blocks on that. Opening the FIFO read-write (`worldserver <>fifo`) means
+  the server itself holds a writer, so it never sees EOF however many clients
+  come and go. Writers use `1<>` too, which cannot block if the server has died.
+  `Console.Enable = 0` would have been simpler, and would have lost
+  `account create` and the shutdown commands below.
+* **Stopping goes through `ExecStop`, not a signal.** `tools/systemd/world-stop.sh`
+  warns and kicks real players and then sends `server shutdown 1`, so a reboot
+  gets the same treatment as `stop.sh`. SIGTERM does shut the world down, but
+  skips `ShutdownServ` and the `OnShutdownInitiate` hook, so it is only the
+  fallback after 180s. `stop.sh --now` and `STOP_GRACE` reach the hook through
+  `/run/acore-world/stop-grace`, since `systemctl stop` takes no arguments.
+  systemd also runs `ExecStop` after a clean exit the server chose itself, with
+  no `$MAINPID`, so the hook must return 0 at once there. A non-zero return makes
+  that exit a failure, and the server restarts after being told to shut down.
+* **Restarts.** `Restart=on-failure` brings back a crash or a freeze-detector
+  abort, and makes `server restart` (exit code 2) mean what it says.
+  `server shutdown` exits 0 and stays down. Five starts within ten minutes and
+  systemd gives up, leaving the unit `failed` rather than looping. That limit
+  counts every start, manual ones too, and a tighter one refused an ordinary
+  restart while this was being tested. `start.sh` clears it; with bare `systemctl`
+  use `sudo systemctl reset-failed acore-world`.
+* **Dependencies.** Both units require `mysql.service` and order after it, so at
+  machine shutdown the world saves before its database goes away, and restarting
+  MySQL restarts them too. The world only *wants* the auth server, because
+  players already in the world do not need it.
+* **`LimitNOFILE=524288`.** A shell session gave the servers this; a system
+  service defaults to a soft limit of 1024, which would surface only as refused
+  connections under load.
+* **No colours and no bell on the console** (`Appender.Console`, `BeepAtStart`).
+  The journal stores a line with a control character in it as a blob, and
+  `journalctl` then prints `[120B blob data]` in place of the text.
+
+The clean environment is a benefit in itself. Under tmux the servers inherited
+whatever the shell that first started them had set, session tokens included.
+Nothing in the core or the modules reads the environment except `HOME`, for a
+`~` in `DataDir`, which is not used here.
 
 ## Connecting
 
@@ -3207,8 +3260,8 @@ keeps its debug info, which is what makes a crash backtrace readable.
   rewrites the RUNPATH.
 
 Database schema updates that ship with the core are applied automatically on
-startup (`Updates.AutoSetup = 1`). Note that `start.sh` starts the auth server
-first and waits for it: both servers run the database updater, and starting
+startup (`Updates.AutoSetup = 1`). Note that the auth server's unit starts first
+and the world server's waits for it: both servers run the database updater, and starting
 them simultaneously against empty databases makes them deadlock against each
 other (which is exactly what happened on the first boot here - the auth server
 lost the race and exited, the world server completed the import).
@@ -3312,10 +3365,6 @@ tmux buys three things over `setsid nohup ... &`:
 What it does not do is announce that it has finished - nothing polls on its
 own. `tools/bg.sh watch <name>` blocks until the job ends and exits with the
 job's code, which is the thing to run when something needs to wait for it.
-
-`status` lists the server's own `acore-world` and `acore-auth` sessions too,
-since they are tmux sessions with the same prefix; they simply always read
-"running".
 
 ## Logs
 

@@ -26,8 +26,11 @@ short list of rules and traps.
 ## Running
 
 - `./start.sh`, `./stop.sh` (`--now` when only bots are online),
-  `./status.sh`. The servers run in tmux sessions `acore-world` and
-  `acore-auth`.
+  `./status.sh`. The servers are systemd units `acore-world` and `acore-auth`
+  (templates in `tools/systemd/`, installed by `tools/install_systemd.sh`), so
+  never start the binaries by hand.
+- `./console.sh '<command>'` runs a world console command;
+  `sudo journalctl -u acore-world` is its output.
 - MySQL 8.4 on `127.0.0.1`, user `acore` / `acore`; databases `acore_auth`,
   `acore_characters`, `acore_world`, `acore_playerbots`.
 - Stopping logs out and saves 500 bots; let it finish rather than killing it.

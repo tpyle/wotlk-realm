@@ -1,0 +1,45 @@
+# Rendered into /etc/systemd/system by tools/install_systemd.sh; edit this copy.
+[Unit]
+Description=AzerothCore world server
+Requires=mysql.service
+# Wants, not Requires: players already in the world do not need the auth server,
+# so losing it must not take the world down with it.
+Wants=acore-auth.service
+After=network.target mysql.service acore-auth.service
+# Every start counts towards this, manual ones too, so it has to be tight enough
+# to leave a rebuild-and-test session alone. A crash during load is about 40s a
+# cycle and trips it; one that takes longer to appear keeps being restarted.
+StartLimitIntervalSec=600
+StartLimitBurst=5
+
+[Service]
+Type=simple
+User=@USER@
+Group=@GROUP@
+WorkingDirectory=@ROOT@/run/bin
+Environment=TERM=dumb
+# The console thread reads stdin with readline, and on /dev/null (the default)
+# that never blocks. A FIFO opened read-write has a writer for as long as the
+# server lives, so it never reports EOF. See console.sh.
+RuntimeDirectory=acore-world
+ExecStartPre=/usr/bin/mkfifo -m 0600 /run/acore-world/console
+ExecStart=/bin/sh -c 'exec @ROOT@/run/bin/worldserver <>/run/acore-world/console'
+# "Started" means accepting players, not merely that the process exists.
+ExecStartPost=@ROOT@/tools/systemd/wait-for-port.sh worldserver.conf WorldServerPort
+ExecStop=@ROOT@/tools/systemd/world-stop.sh
+# Covers crashes, the freeze detector, and "server restart" (exit code 2).
+# "server shutdown" exits 0 and stays down.
+Restart=on-failure
+RestartSec=10
+TimeoutStartSec=1800
+# Warning players, plus the 180s world-stop.sh allows for saving 500 bots.
+TimeoutStopSec=240
+# Stock limit for a system service is 1024, far below what a shell session gave.
+LimitNOFILE=524288
+# Startup is a burst of thousands of lines; afterwards the console is quiet.
+LogRateLimitIntervalSec=0
+# Otherwise the journal names it after the sh that exec'd it.
+SyslogIdentifier=worldserver
+
+[Install]
+WantedBy=multi-user.target

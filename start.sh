@@ -1,70 +1,27 @@
 #!/usr/bin/env bash
 #
-# Start MySQL, the auth server and the world server.
-#
-# Each server runs inside its own tmux session so its console stays usable:
-#
-#   tmux attach -t acore-world     (detach again with Ctrl-B then D)
+# Start MySQL, the auth server and the world server, through their systemd units
+# (see README, "Running under systemd"). Each pulls in what it depends on, and
+# the world server is ordered after the auth server has finished its database
+# work.
 #
 set -euo pipefail
 
-ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-BIN="$ROOT/run/bin"
-LOGS="$ROOT/logs"
-
-mkdir -p "$LOGS"
-
-if ! mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1; then
-    echo "starting MySQL..."
-    sudo systemctl start mysql
-    for _ in $(seq 1 60); do
-        mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1 && break
-        sleep 1
-    done
-fi
-
-if ! mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1; then
-    echo "MySQL did not come up - aborting" >&2
+if ! systemctl cat acore-world.service >/dev/null 2>&1; then
+    echo "the units are not installed, run tools/install_systemd.sh" >&2
     exit 1
 fi
-echo "MySQL is up"
 
-start_session() {
-    local session="$1" command="$2"
+# Asking for a start by hand overrides a crash loop systemd has given up on.
+sudo systemctl reset-failed acore-auth.service acore-world.service 2>/dev/null || true
 
-    if tmux has-session -t "$session" 2>/dev/null; then
-        echo "$session is already running"
-        return
-    fi
+sudo systemctl start acore-auth.service
+echo "auth server is up"
 
-    tmux new-session -d -s "$session" -c "$BIN" "$command"
-    echo "$session started (tmux attach -t $session)"
-}
-
-# The auth server is started first and waited for on purpose: both servers run
-# the database updater, and on a freshly created (empty) database starting them
-# at the same time makes them deadlock against each other.
-start_session acore-auth "$BIN/authserver"
-
-if ! tmux has-session -t acore-world 2>/dev/null; then
-    echo -n "waiting for the auth server to finish its database work"
-    for _ in $(seq 1 180); do
-        if ss -ltn 2>/dev/null | grep -q ':3724 '; then
-            echo " - ready"
-            break
-        fi
-        if ! tmux has-session -t acore-auth 2>/dev/null; then
-            echo
-            echo "the auth server exited, see $LOGS/Auth.log" >&2
-            exit 1
-        fi
-        echo -n "."
-        sleep 1
-    done
-fi
-
-start_session acore-world "$BIN/worldserver"
+# Not waited for: the unit reads "activating" until the world accepts players.
+sudo systemctl start --no-block acore-world.service
+echo "world server starting"
 
 echo
 echo "The world server needs a few minutes to load and to log in 500 bots."
-echo "Watch it with:  tmux attach -t acore-world"
+echo "Watch it with:  ./console.sh   (or ./status.sh)"

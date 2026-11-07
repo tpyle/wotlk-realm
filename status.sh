@@ -8,12 +8,9 @@ ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 printf 'mysql        : %s\n' "$(mysqladmin -uacore -pacore -h127.0.0.1 --silent ping >/dev/null 2>&1 && echo up || echo down)"
 
-for session in acore-auth acore-world; do
-    if tmux has-session -t "$session" 2>/dev/null; then
-        printf '%-13s: up\n' "${session#acore-}server"
-    else
-        printf '%-13s: down\n' "${session#acore-}server"
-    fi
+# active, activating (still loading), inactive (stopped) or failed.
+for unit in auth world; do
+    printf '%-13s: %s\n' "${unit}server" "$(systemctl is-active "acore-$unit.service")"
 done
 
 # The bot account prefix is config, not a constant - read it rather than
