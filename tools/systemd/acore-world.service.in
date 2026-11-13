@@ -42,4 +42,6 @@ LogRateLimitIntervalSec=0
 SyslogIdentifier=worldserver
 
 [Install]
-WantedBy=multi-user.target
+# mysql.service too: starting MySQL again (after a package upgrade stopped it, and
+# with it this unit, through Requires=) starts this unit again.
+WantedBy=multi-user.target mysql.service
